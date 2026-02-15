@@ -1,4 +1,6 @@
 <?php
+
+
 // api/caixa_fechar.php
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../auth.php';
@@ -6,8 +8,12 @@ require_once __DIR__ . '/../conexao.php';
 
 requireAdminApi();
 
-$input = json_decode(file_get_contents('php://input'), true);
-$closing_cash = isset($input['closing_cash']) ? (float)$input['closing_cash'] : null;
+// Support JSON body or fallback to form POST
+$raw = file_get_contents('php://input');
+$input = json_decode($raw, true);
+if (!is_array($input)) $input = $_POST;
+$closing_cash = null;
+if (isset($input['closing_cash']) && $input['closing_cash'] !== '') $closing_cash = (float)$input['closing_cash'];
 $obs = isset($input['obs']) ? trim((string)$input['obs']) : null;
 
 try {
@@ -47,22 +53,22 @@ try {
         else $diferenca_label = 'Exato';
     }
 
-    // verificar se coluna total_cancelado existe na tabela caixa_sessoes
-    $colStmt = $pdo->prepare("SELECT COUNT(*) AS c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'caixa_sessoes' AND column_name = 'total_cancelado'");
+    // verificar se colunas existem na tabela caixa_sessoes
+    $cols = ['total_cancelado','total_pago','closing_cash','diferenca'];
+    $has = [];
+    $colStmt = $pdo->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'caixa_sessoes' AND column_name IN ('" . implode("','", $cols) . "')");
     $colStmt->execute();
-    $colRes = $colStmt->fetch();
-    $has_total_cancelado_col = ((int)($colRes['c'] ?? 0)) > 0;
+    $found = $colStmt->fetchAll(PDO::FETCH_COLUMN, 0);
+    foreach ($cols as $c) $has[$c] = in_array($c, $found, true);
 
-    // atualizar sessao - only include total_cancelado if column exists
+    // atualizar sessao - only include columns that actually exist
     $updates = [];
     $params = [];
     $updates[] = "closed_at = NOW()";
-    $updates[] = "total_pago = ?"; $params[] = $total_pago;
-    if ($has_total_cancelado_col) {
-        $updates[] = "total_cancelado = ?"; $params[] = $total_cancelado;
-    }
-    if ($closing_cash !== null) { $updates[] = "closing_cash = ?"; $params[] = $closing_cash; }
-    if ($diferenca !== null) { $updates[] = "diferenca = ?"; $params[] = $diferenca; }
+    if ($has['total_pago']) { $updates[] = "total_pago = ?"; $params[] = $total_pago; }
+    if ($has['total_cancelado']) { $updates[] = "total_cancelado = ?"; $params[] = $total_cancelado; }
+    if ($has['closing_cash'] && $closing_cash !== null) { $updates[] = "closing_cash = ?"; $params[] = $closing_cash; }
+    if ($has['diferenca'] && $diferenca !== null) { $updates[] = "diferenca = ?"; $params[] = $diferenca; }
     if ($obs !== null && $obs !== '') { $updates[] = "obs = ?"; $params[] = $obs; }
     $params[] = $sessaoId;
 
@@ -74,13 +80,20 @@ try {
         'opening_cash' => $opening_cash,
         'closing_cash' => $closing_cash,
         'total_pago' => $total_pago,
-        'total_cancelado' => $has_total_cancelado_col ? $total_cancelado : null,
-        'diferenca' => $diferenca,
+        'total_cancelado' => ($has['total_cancelado'] ? $total_cancelado : null),
+        'diferenca' => ($has['diferenca'] ? $diferenca : null),
         'diferenca_label' => $diferenca_label,
     ]], JSON_UNESCAPED_UNICODE);
     exit;
 } catch (Throwable $e) {
+    // Temporary verbose error for debugging — remove or tone down in production
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Erro ao fechar sessão']);
+    echo json_encode([
+        'success' => false,
+        'debug_error' => $e->getMessage(),
+        'debug_file' => $e->getFile(),
+        'debug_line' => $e->getLine(),
+        'debug_trace' => $e->getTraceAsString(),
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }

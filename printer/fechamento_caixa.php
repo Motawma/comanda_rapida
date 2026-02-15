@@ -25,14 +25,21 @@ $closing_cash = (float)($sess['closing_cash'] ?? 0.0);
 // Use valor salvo em sessao se existir, caso contrário calcula a partir dos valores
 if (array_key_exists('diferenca', $sess) && $sess['diferenca'] !== null) {
   $diferenca = (float)$sess['diferenca'];
+  $diferenca_label = '';
 } else {
-  $expected_total_in_cash = $opening_cash + $total_pago - $total_cancelado;
-  $diferenca = $closing_cash - $expected_total_in_cash;
+  // Se não houver fechamento informado (closing_cash vazio ou zero), assumir valor no caixa = total_pago e diferença = 0.00
+  if (empty($sess['closing_cash']) || $sess['closing_cash'] === null || (float)$sess['closing_cash'] == 0.0) {
+    $valorNoCaixa = $total_pago;
+    $diferenca = 0.00;
+    $diferenca_label = '';
+  } else {
+    // Mantém lógica anterior quando houver valor de fechamento informado
+    $expected_total_in_cash = $opening_cash + $total_pago;
+    $diferenca = $closing_cash - $expected_total_in_cash;
+    // Não exibir rótulos 'Faltando' / 'Sobrando' por enquanto
+    $diferenca_label = '';
+  }
 }
-// Rótulo: Sobrando (positivo), Faltando (negativo), Exato (aprox zero)
-if ($diferenca > 0.005) $diferenca_label = 'Sobrando';
-else if ($diferenca < -0.005) $diferenca_label = 'Faltando';
-else $diferenca_label = 'Exato';
 
 // Pedidos pagos e cancelados
 $pedPagStmt = $pdo->prepare("SELECT id, mesa, total, created_at FROM pedidos WHERE caixa_sessao_id = ? AND status = 'PAGO' ORDER BY created_at ASC");
@@ -54,7 +61,7 @@ $pedCanStmt->execute([$sessaoId]); $pedCan = $pedCanStmt->fetchAll();
       <div class="col-md-3">Abertura: R$ <?= number_format($opening_cash,2,',','.') ?></div>
       <div class="col-md-3">Fechamento (informado): R$ <?= number_format($closing_cash,2,',','.') ?></div>
       <div class="col-md-3">Total Pago: R$ <?= number_format($total_pago,2,',','.') ?></div>
-      <div class="col-md-3">Diferença: R$ <?= number_format($diferenca,2,',','.') ?> <span class="small text-muted">(<?= $diferenca_label ?>)</span></div>
+      <div class="col-md-3">Diferença: R$ <?= number_format($diferenca,2,',','.') ?><?php if (!empty($diferenca_label)): ?> <span class="small text-muted">(<?= $diferenca_label ?>)</span><?php endif; ?></div>
     </div>
 
     <h6>Pedidos Pagos</h6>

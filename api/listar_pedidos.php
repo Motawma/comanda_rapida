@@ -44,11 +44,20 @@ if ($sessaoId > 0) {
 
     $lista = [];
     foreach ($pedidos as $p) {
+        // pendencias_total: sum of FIADO pedidos vinculados to this pedido
+        $pendStmt = $pdo->prepare("SELECT COALESCE(SUM(total),0) AS s FROM pedidos WHERE status = 'FIADO' AND fiado_vinculado_pedido_id = ?");
+        $pendStmt->execute([(int)$p['id']]);
+        $pr = $pendStmt->fetch();
+        $pendencias_total = (float)($pr['s'] ?? 0.0);
+        $total_a_pagar = (float)$p['total'] + $pendencias_total;
+
         $lista[] = [
             'id' => (int)$p['id'],
             'mesa' => (string)$p['mesa'],
             'status' => (string)$p['status'],
             'total' => (float)$p['total'],
+            'pendencias_total' => $pendencias_total,
+            'total_a_pagar' => $total_a_pagar,
             'created_at' => (string)$p['created_at'],
         ];
     }
@@ -99,11 +108,20 @@ $pedidos = listarPedidosPorDia($date, $status);
 
 $lista = [];
 foreach ($pedidos as $p) {
+    // pendencias_total: sum of FIADO pedidos vinculados to this pedido
+    $pendStmt = $pdo->prepare("SELECT COALESCE(SUM(total),0) AS s FROM pedidos WHERE status = 'FIADO' AND fiado_vinculado_pedido_id = ?");
+    $pendStmt->execute([(int)$p['id']]);
+    $pr = $pendStmt->fetch();
+    $pendencias_total = (float)($pr['s'] ?? 0.0);
+    $total_a_pagar = (float)$p['total'] + $pendencias_total;
+
     $lista[] = [
         'id' => (int)$p['id'],
         'mesa' => (string)$p['mesa'],
         'status' => (string)$p['status'],
         'total' => (float)$p['total'],
+        'pendencias_total' => $pendencias_total,
+        'total_a_pagar' => $total_a_pagar,
         'created_at' => (string)$p['created_at'],
     ];
 }

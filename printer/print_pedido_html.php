@@ -11,6 +11,23 @@ function gerarCupomHtml(int $pedidoId, ?string $modo = null): array {
 
     $itens = getItensPedido($pedidoId);
 
+    // Buscar FIADOS vinculados e seus itens; calcular soma das pendências e total a pagar
+    $pdo = getPDO();
+    $fiadosStmt = $pdo->prepare("SELECT id, mesa, total, fiado_at, created_at FROM pedidos WHERE status = 'FIADO' AND fiado_vinculado_pedido_id = ?");
+    $fiadosStmt->execute([$pedidoId]);
+    $fiados = $fiadosStmt->fetchAll();
+
+    $fiados_items = [];
+    $sum_fiados = 0.0;
+    $itemStmt = $pdo->prepare("SELECT ip.quantidade, p.nome, ip.subtotal FROM itens_pedido ip JOIN produtos p ON p.id = ip.produto_id WHERE ip.pedido_id = ?");
+    foreach ($fiados as $f) {
+        $itemStmt->execute([(int)$f['id']]);
+        $rows = $itemStmt->fetchAll();
+        $fiados_items[$f['id']] = $rows;
+        $sum_fiados += (float)($f['total'] ?? 0.0);
+    }
+    $total_a_pagar = (float)$pedido['total'] + $sum_fiados;
+
     // Agrupa por categoria
     $grupos = [];
     foreach ($itens as $it) {
@@ -110,6 +127,41 @@ function gerarCupomHtml(int $pedidoId, ?string $modo = null): array {
         </div>
 
         <div class="hr"></div>
+
+        <?php if (!empty($fiados)): ?>
+          <div class="small bold">PENDÊNCIA COMANDA PASSADA</div>
+
+          <?php foreach ($fiados as $f): ?>
+            <?php $dt = (!empty($f['fiado_at']) && $f['fiado_at'] !== '0000-00-00 00:00:00') ? $f['fiado_at'] : ($f['created_at'] ?? ''); ?>
+            <div class="small">Data: <?= $dt ? date('d/m/Y H:i', strtotime($dt)) : '' ?></div>
+
+            <div class="item-grid" style="font-size:12px;">
+              <div>Total</div>
+              <div class="subtotal">R$ <?= number_format((float)$f['total'], 2, ',', '.') ?></div>
+            </div>
+
+            <?php if (!empty($fiados_items[$f['id']])): ?>
+              <?php foreach ($fiados_items[$f['id']] as $fi): ?>
+                <div class="item">
+                  <div class="item-grid">
+                    <div class="item-name"><span class="qty"><?= (int)$fi['quantidade'] ?>x</span> <?= htmlspecialchars($fi['nome']) ?></div>
+                    <div class="subtotal"><?= number_format((float)$fi['subtotal'], 2, ',', '.') ?></div>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            <?php endif; ?>
+
+            <div class="hr"></div>
+          <?php endforeach; ?>
+
+          <div class="item-grid bold" style="font-size:13px;">
+            <div>TOTAL A PAGAR</div>
+            <div class="subtotal">R$ <?= number_format((float)$total_a_pagar, 2, ',', '.') ?></div>
+          </div>
+
+          <div class="hr"></div>
+        <?php endif; ?>
+
         <div class="center small">Pedido #<?= (int)$pedidoId ?></div>
 
         <div class="no-print" style="margin-top:10px; text-align:center;">

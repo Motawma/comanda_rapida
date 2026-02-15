@@ -198,12 +198,23 @@ function totalVendidoDia(string $date): float {
  * Atualiza status e tenta gravar/limpar timestamps conforme transição.
  * Colunas usadas: em_preparo_at, pronto_at, pago_at
  */
-function atualizarStatusPedido(int $pedidoId, string $status): bool {
+function atualizarStatusPedido($pdoOrPedidoId, $pedidoIdOrStatus = null, $statusOptional = null): bool {
+    // This function accepts either:
+    // - atualizarStatusPedido($pedidoId, $status)
+    // - atualizarStatusPedido($pdo, $pedidoId, $status)
+    if ($pdoOrPedidoId instanceof PDO) {
+        $pdo = $pdoOrPedidoId;
+        $pedidoId = (int)$pedidoIdOrStatus;
+        $status = (string)$statusOptional;
+    } else {
+        $pdo = getPDO();
+        $pedidoId = (int)$pdoOrPedidoId;
+        $status = (string)$pedidoIdOrStatus;
+    }
+
     // aceitar FIADO como status válido
     $allowed = ['PENDENTE','EM_PREPARO','PRONTO','FIADO','PAGO','CANCELADO'];
     if (!in_array($status, $allowed)) return false;
-
-    $pdo = getPDO();
 
     try {
         // Obter status atual
@@ -283,6 +294,15 @@ function atualizarStatusPedido(int $pedidoId, string $status): bool {
                     $sql = "UPDATE pedidos SET status = ?, pago_at = NOW(), caixa_sessao_id = ? WHERE id = ?";
                     $stmt = $pdo->prepare($sql);
                     $stmt->execute([$status, $sessaoId, $pedidoId]);
+
+                    // Também marcar como PAGO todas as pendências (FIADO) vinculadas a este pedido,
+                    // dentro da mesma transação, garantindo lock e atualização atômica.
+                    $fiadosLock = $pdo->prepare("SELECT id FROM pedidos WHERE status = 'FIADO' AND fiado_vinculado_pedido_id = ? FOR UPDATE");
+                    $fiadosLock->execute([$pedidoId]);
+                    // Atualiza todos os fiados vinculados para PAGO
+                    $updFiados = $pdo->prepare("UPDATE pedidos SET status = 'PAGO', pago_at = NOW(), caixa_sessao_id = ? WHERE status = 'FIADO' AND fiado_vinculado_pedido_id = ?");
+                    $updFiados->execute([$sessaoId, $pedidoId]);
+
                     if ($pdo->inTransaction()) $pdo->commit();
                     return true;
                 } else {

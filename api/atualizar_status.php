@@ -7,18 +7,21 @@ $pedidoId = (int)($input['pedido_id'] ?? 0);
 $status = isset($input['status']) ? trim((string)$input['status']) : '';
 
 if ($pedidoId <= 0 || $status === '') {
+    header('HTTP/1.1 400 Bad Request');
     echo json_encode(['success' => false, 'message' => 'pedido_id e status são obrigatórios']);
     exit;
 }
 
 $allowed = ['PENDENTE','EM_PREPARO','PRONTO','FIADO','PAGO','CANCELADO'];
 if (!in_array($status, $allowed)) {
+    header('HTTP/1.1 400 Bad Request');
     echo json_encode(['success' => false, 'message' => 'Status inválido']);
     exit;
 }
 
 $pedido = getPedido($pedidoId);
 if (!$pedido) {
+    header('HTTP/1.1 404 Not Found');
     echo json_encode(['success' => false, 'message' => 'Pedido não encontrado']);
     exit;
 }
@@ -42,6 +45,7 @@ if ($current === $status) {
 
 $allowedNext = $transitions[$current] ?? [];
 if (!in_array($status, $allowedNext)) {
+    header('HTTP/1.1 400 Bad Request');
     echo json_encode(['success' => false, 'message' => "Transição inválida: {$current} -> {$status}"]);
     exit;
 }
@@ -53,6 +57,7 @@ if ($ok) {
 } else {
     // se tentativa de marcar PAGO falhou por falta de sessao aberta, retorna mensagem clara
     if ($status === 'PAGO') {
+        header('HTTP/1.1 400 Bad Request');
         echo json_encode(['success' => false, 'message' => 'Caixa fechado. Abra o caixa para iniciar.']);
     } else {
         echo json_encode(['success' => false, 'message' => 'Falha ao atualizar status']);
