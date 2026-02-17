@@ -823,7 +823,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Pausar enquanto modal de fechamento estiver aberto (evitar recarregar a lista durante edição)
   const fechamentoModalEl = document.getElementById('modalFechamento');
   if (fechamentoModalEl) {
-    fechamentoModalEl.addEventListener('shown.bs.modal', () => { pauseAutoRefresh(); });
+    fechamentoModalEl.addEventListener('shown.bs.modal', () => { pauseAutoRefresh(); initCardapioRapido(); });
     fechamentoModalEl.addEventListener('hidden.bs.modal', () => { _autoRefreshPausedUntil = 0; });
   }
 
@@ -953,32 +953,181 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) { mostrarErro('Erro de rede'); }
   }
 
-  // busca rápida produtos
-  let _fechTimer = null;
-  document.querySelector('#fechBusca')?.addEventListener('input', (e) => {
-    clearTimeout(_fechTimer);
-    _fechTimer = setTimeout(async () => {
-      const q = (document.querySelector('#fechBusca').value || '').trim();
-      const list = document.querySelector('#fechSugestoes');
-      if (q.length < 2) { list.style.display='none'; list.innerHTML = ''; return; }
-      try {
-        const res = await fetch('api/produtos_buscar.php?q=' + encodeURIComponent(q));
-        const j = await res.json();
-        if (!j || !j.ok) { list.style.display='none'; return; }
-        list.innerHTML = j.produtos.map(p => `<button type="button" class="list-group-item list-group-item-action fe-item" data-id="${p.id}">${escapeHtml(p.nome)} — ${formatBRL(p.preco)}</button>`).join('');
-        list.style.display = j.produtos.length ? '' : 'none';
-      } catch (e) { list.style.display='none'; }
-    }, 220);
-  });
+  // Cardápio rápido: carregar produtos UMA vez e filtrar no cliente
+  const TOP_FIXOS = [
+    "Cerveja Long Neck",
+    "Coca-Cola (Lata)",
+    "Espeto de Frango",
+    "Espeto de Carne (Fraldinha)",
+    "Prato Pronto (Arroz, mandioca, farofa, salada, vinagrete + 2 espetos)",
+    "Batata Frita",
+    "Suco de Laranja (500ml)",
+    "H2O Limão (500ml)",
+    "Energético Monster (473ml)",
+    "Espeto de Queijo Coalho",
+    "Espeto de Coração",
+    "Medalhão de Frango com Bacon"
+  ];
 
-  document.querySelector('#fechSugestoes')?.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.fe-item');
-    if (!btn) return;
-    const produtoId = parseInt(btn.dataset.id, 10);
+  let ALL_PRODUCTS = [];
+  let FILTERED_PRODUCTS = [];
+  let categoriaSelecionada = 'Todas';
+
+  async function loadProdutosParaCardapio(){
+    try {
+      const res = await fetch('api/produtos_listar.php?ativo=1');
+      const j = await res.json();
+      if (!j || !j.ok) return;
+      // produtos vêm em j.produtos ou j.data
+      ALL_PRODUCTS = j.produtos || j.data || [];
+      renderCategorias();
+      renderTop();
+      applyFilters();
+    } catch(e){ console.error('Erro carregar produtos', e); }
+  }
+
+  function formatPrice(v){ return Number(v||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
+
+  // helper para normalizar categorias (trim)
+  const catNorm = (c) => String(c || '').trim();
+
+  function renderTop(){
+    const container = document.getElementById('topGrid');
+    const found = [];
+    const usedIds = new Set();
+    const lower = s => String(s||'').trim().toLowerCase();
+
+    // 1) tentar match exato (trim + lower)
+    for (const t of TOP_FIXOS){
+      const lt = lower(t);
+      const p = ALL_PRODUCTS.find(a => lower(a.nome) === lt);
+      if (p){ found.push(p); usedIds.add(p.id); if (found.length>=12) break; }
+    }
+
+    // 2) para os não encontrados, tentar includes (produto.nome inclui TOP_FIXO OR TOP_FIXO inclui produto.nome)
+    if (found.length < 12){
+      for (const t of TOP_FIXOS){
+        if (found.length>=12) break;
+        const lt = lower(t);
+        // já tem correspondência exata
+        const already = ALL_PRODUCTS.find(a => lower(a.nome) === lt);
+        if (already) continue;
+        const candidate = ALL_PRODUCTS.find(a => {
+          const pn = lower(a.nome);
+          return pn.includes(lt) || lt.includes(pn);
+        });
+        if (candidate && !usedIds.has(candidate.id)){
+          found.push(candidate); usedIds.add(candidate.id);
+        }
+      }
+    }
+
+    // 3) fallback: completar com os mais baratos
+    if (found.length < 12){
+      const candidates = ALL_PRODUCTS.filter(p=>!usedIds.has(p.id)).slice().sort((a,b)=> Number(a.preco||0) - Number(b.preco||0));
+      for (const c of candidates){ found.push(c); usedIds.add(c.id); if (found.length>=12) break; }
+    }
+
+    container.innerHTML = found.map(p => {
+      const disabled = (Number(p.controla_estoque||0)===1 && Number(p.estoque_atual||0) <= 0);
+      return `<button type="button" class="btn btn-sm btn-outline-secondary" ${disabled? 'disabled': ''} onclick="addProdutoToPedido(${p.id})">${escapeHtml(p.nome)}<br><small>${formatPrice(p.preco)}</small></button>`;
+    }).join(' ');
+  }
+
+  function renderCategorias(){
+    const div = document.getElementById('chipsCategorias');
+    // normalizar, ignorar vazios e ordenar alfabeticamente
+    const cats = Array.from(new Set(ALL_PRODUCTS.map(p=> catNorm(p.categoria)).filter(c=> c !== ''))).sort((a,b)=> a.localeCompare(b, 'pt-BR'));
+    const arr = ['Todas', ...cats];
+    div.innerHTML = arr.map(c => `<button type="button" class="btn btn-sm ${c===categoriaSelecionada? 'btn-primary':'btn-outline-primary'} chip-cat" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join(' ');
+  }
+
+  function applyFilters(){
+    const q = (document.getElementById('buscaProdutoRapida').value || '').trim().toLowerCase();
+    FILTERED_PRODUCTS = ALL_PRODUCTS.filter(p => {
+      const pCat = catNorm(p.categoria);
+      if (categoriaSelecionada && categoriaSelecionada !== 'Todas'){
+        if (pCat !== catNorm(categoriaSelecionada)) return false;
+      }
+      if (q){
+        return (p.nome||'').toLowerCase().includes(q);
+      }
+      return true;
+    });
+    renderLista();
+  }
+
+  // debounce search + init-once flag
+  let buscaTimer = null;
+  let CARDAPIO_READY = false;
+
+  function initCardapioRapido(){
+    if (CARDAPIO_READY) return;
+    CARDAPIO_READY = true;
+    // input listeners
+    const input = document.getElementById('buscaProdutoRapida');
+    if (input){
+      input.addEventListener('input', ()=>{
+        clearTimeout(buscaTimer);
+        buscaTimer = setTimeout(()=> applyFilters(), 200);
+      });
+      input.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter'){
+          e.preventDefault();
+          if (FILTERED_PRODUCTS && FILTERED_PRODUCTS.length>0){
+            addProdutoToPedido(FILTERED_PRODUCTS[0].id);
+            input.value = '';
+            applyFilters();
+          }
+        }
+      });
+    }
+
+    // delegated listener for category chips
+    const chipsContainer = document.getElementById('chipsCategorias');
+    if (chipsContainer){
+      chipsContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.chip-cat');
+        if (!btn) return;
+        categoriaSelecionada = btn.getAttribute('data-cat') || 'Todas';
+        renderCategorias();
+        applyFilters();
+      });
+    }
+
+    // load products once if needed
+    if (!ALL_PRODUCTS || ALL_PRODUCTS.length === 0) loadProdutosParaCardapio();
+  }
+
+  function renderLista(){
+    const div = document.getElementById('listaProdutos');
+    if (!FILTERED_PRODUCTS || FILTERED_PRODUCTS.length===0){ div.innerHTML = '<div class="small text-muted">Nenhum item</div>'; return; }
+    // mobile-first grid: buttons large
+    div.innerHTML = FILTERED_PRODUCTS.map(p => {
+      const estoque = Number(p.estoque_atual||0);
+      const controla = Number(p.controla_estoque||0);
+      const disabled = (controla===1 && estoque<=0);
+      const badge = p.categoria ? `<div class="small text-muted">${escapeHtml(p.categoria)}</div>` : '';
+      return `
+        <div class="col-6 col-sm-4 col-md-3">
+          <button type="button" class="btn btn-light w-100 h-100 text-start" ${disabled? 'disabled': ''} onclick="addProdutoToPedido(${p.id})">
+            <div class="fw-semibold">${escapeHtml(p.nome)}</div>
+            <div class="small text-muted">${formatPrice(p.preco)}</div>
+            ${badge}
+            ${disabled? '<div class="badge bg-secondary mt-1">Sem estoque</div>' : ''}
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // add product to current pedido (uses same API as existing fechSugestoes)
+  window.addProdutoToPedido = async function(produtoId){
     if (!produtoId) return;
+    if (!FECH || !FECH.pedidoId) return alert('Abra a comanda primeiro');
     try {
       const res = await fetch('api/itens_pedido_adicionar.php', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ pedido_id: FECH.pedidoId, produto_id: produtoId })
       });
       const data = await res.json();
@@ -986,53 +1135,8 @@ document.addEventListener('DOMContentLoaded', () => {
       FECH_LAST_PEDIDO = data.pedido || FECH_LAST_PEDIDO;
       renderItens(data.itens);
       recalcularResumo(data);
-      document.querySelector('#fechSugestoes').style.display = 'none';
-      document.querySelector('#fechBusca').value = '';
     } catch (e) { mostrarErro('Erro de rede'); }
-  });
-
-  // salvar obs+desconto sem fechar
-  let _tObs = null;
-  document.querySelector('#fechObs').addEventListener('input', () => debounceSalvarCampos());
-  document.querySelector('#fechDesconto').addEventListener('input', (e) => {
-    let raw = (e.target.value || '').replace(/\D/g, '');
-
-    if (!raw) {
-      e.target.value = '';
-      debounceSalvarCampos();
-      // recalcula com desconto vazio (usa desconto do pedido)
-      recalcularResumo({});
-      return;
-    }
-
-    let valor = (parseInt(raw, 10) / 100).toFixed(2);
-    e.target.value = valor.replace('.', ',');
-
-    debounceSalvarCampos();
-    // recalcula imediatamente com o valor digitado
-    recalcularResumo({});
-  });
-
-  function debounceSalvarCampos() {
-    clearTimeout(_tObs);
-    _tObs = setTimeout(salvarCampos, 350);
-  }
-
-  async function salvarCampos() {
-    try {
-      const desconto = parseBRL(document.querySelector('#fechDesconto').value);
-      const observacoes = document.querySelector('#fechObs').value;
-
-      const res = await fetch('api/pedido_atualizar_campos.php', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pedido_id: FECH.pedidoId, desconto, observacoes })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) return; // silencioso
-      FECH_LAST_PEDIDO = data.pedido || FECH_LAST_PEDIDO;
-      recalcularResumo(data);
-    } catch (e) { /* noop */ }
-  }
+  };
 
   document.querySelector('#btnImprimirPrevia')?.addEventListener('click', () => {
     window.open(`printer/cupom.php?pedido_id=${FECH.pedidoId}&previa=1`, '_blank');
@@ -1101,10 +1205,19 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
 
       <div class="modal-body">
-        <!-- Busca rápida -->
+        <!-- Cardápio rápido: busca, categorias, TOP e lista de produtos -->
         <div class="mb-2">
-          <input id="fechBusca" class="form-control" placeholder="Busque aqui o chocolate..." autocomplete="off">
-          <div id="fechSugestoes" class="list-group mt-1" style="display:none;"></div>
+          <div class="mb-2">
+            <input id="buscaProdutoRapida" class="form-control" placeholder="Buscar item..." autocomplete="off">
+          </div>
+          <div id="chipsCategorias" class="mb-2 d-flex gap-2 flex-wrap"></div>
+
+          <div id="topProdutos" class="mb-2">
+            <h6 class="mb-2">🔥 Mais pedidos</h6>
+            <div id="topGrid" class="d-flex flex-wrap gap-2"></div>
+          </div>
+
+          <div id="listaProdutos" class="row g-2"></div>
         </div>
 
         <!-- Itens -->

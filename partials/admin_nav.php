@@ -30,13 +30,22 @@ if (($user['role'] ?? '') !== 'admin') return;
         </li>
       </ul>
 
+      <?php $cur = basename($_SERVER['PHP_SELF']); ?>
       <!-- LADO DIREITO -->
-      <div class="d-flex align-items-center gap-3">
-        <a class="nav-link text-white p-0" href="admin.php">
-          Admin: <?= htmlspecialchars($user['username']) ?>
-        </a>
-        <a class="btn btn-sm btn-outline-light" href="admin_logout.php">Sair</a>
-      </div>
+      <ul class="navbar-nav ms-auto d-flex align-items-center">
+        <li class="nav-item">
+          <a class="nav-link<?= ($cur === 'produtos.php') ? ' active' : '' ?>" href="produtos.php">Produtos</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link<?= ($cur === 'estoque.php') ? ' active' : '' ?>" href="estoque.php">Estoque</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white p-0" href="admin.php">Admin: <?= htmlspecialchars($user['username']) ?></a>
+        </li>
+        <li class="nav-item">
+          <a class="btn btn-sm btn-outline-light" href="admin_logout.php">Sair</a>
+        </li>
+      </ul>
 
     </div>
   </div>
