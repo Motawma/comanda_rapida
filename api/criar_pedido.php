@@ -35,6 +35,12 @@ if (is_array($result) && isset($result['pedido_id'])) {
     $merged = false;
 }
 
+// Se mesclou itens num pedido existente, sincronizar o status do pedido
+// com base nos item_status dos itens (novos itens são PENDENTE)
+if ($merged) {
+    sincronizarStatusPedidoComItens($pedidoId);
+}
+
 // Se a lib ESC/POS (composer) existir -> imprime direto (a nova print_pedido suporta por categoria)
 $autoload = __DIR__ . '/../vendor/autoload.php';
 

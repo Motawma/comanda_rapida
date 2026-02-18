@@ -1,0 +1,450 @@
+/* ═══════════════════════════════════════════════
+   theme.css — Modo Claro / Escuro
+   Comanda Rápida
+   ═══════════════════════════════════════════════ */
+
+/* ── Variáveis do tema CLARO (padrão) ── */
+:root,
+[data-theme="light"] {
+  --bg-body:        #f8f9fa;
+  --bg-card:        #ffffff;
+  --bg-nav:         #ffffff;
+  --bg-input:       #ffffff;
+  --bg-table-head:  #f1f3f5;
+  --bg-hover:       #f8f9fa;
+  --bg-modal:       #ffffff;
+
+  --text-primary:   #212529;
+  --text-secondary: #6c757d;
+  --text-muted:     #adb5bd;
+
+  --border-color:   #dee2e6;
+  --shadow:         0 2px 8px rgba(0,0,0,.08);
+
+  --badge-pendente-bg:   #6c757d;
+  --badge-pendente-text: #fff;
+}
+
+/* ── Variáveis do tema ESCURO ── */
+[data-theme="dark"] {
+  --bg-body:        #121212;
+  --bg-card:        #1e1e2e;
+  --bg-nav:         #16213e;
+  --bg-input:       #2a2a3e;
+  --bg-table-head:  #252535;
+  --bg-hover:       #2a2a3e;
+  --bg-modal:       #1e1e2e;
+
+  --text-primary:   #e0e0e0;
+  --text-secondary: #a0a0b0;
+  --text-muted:     #6c6c80;
+
+  --border-color:   #2e2e42;
+  --shadow:         0 2px 8px rgba(0,0,0,.4);
+
+  --badge-pendente-bg:   #4a4a5a;
+  --badge-pendente-text: #fff;
+}
+
+/* ══════════════════════════════════════════════
+   Aplicação das variáveis nos elementos
+   ══════════════════════════════════════════════ */
+
+body {
+  background-color: var(--bg-body) !important;
+  color: var(--text-primary) !important;
+  transition: background-color .3s, color .3s;
+}
+
+/* Cards e painéis */
+.card,
+.modal-content,
+.offcanvas {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+/* Navbar */
+.navbar,
+.navbar-light,
+.navbar-dark,
+nav {
+  background-color: var(--bg-nav) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.navbar-brand,
+.nav-link {
+  color: var(--text-primary) !important;
+}
+
+/* Inputs e selects */
+.form-control,
+.form-select,
+.input-group-text {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.form-control::placeholder {
+  color: var(--text-muted) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: #6f42c1 !important;
+  box-shadow: 0 0 0 3px rgba(111,66,193,.2) !important;
+}
+
+/* Labels */
+.form-label,
+label {
+  color: var(--text-primary) !important;
+}
+
+/* Tabelas */
+.table {
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.table thead th {
+  background-color: var(--bg-table-head) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.table td,
+.table tr {
+  border-color: var(--border-color) !important;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+.table-hover tbody tr:hover > * {
+  background-color: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+.table-light th {
+  background-color: var(--bg-table-head) !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Modal */
+.modal-header,
+.modal-footer {
+  border-color: var(--border-color) !important;
+  background-color: var(--bg-card) !important;
+}
+
+.modal-title,
+.modal-body {
+  color: var(--text-primary) !important;
+}
+
+/* Dropdown */
+.dropdown-menu {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dropdown-item {
+  color: var(--text-primary) !important;
+}
+
+.dropdown-item:hover {
+  background-color: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+/* List groups */
+.list-group-item {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Texto muted / secundário */
+.text-muted,
+.muted {
+  color: var(--text-secondary) !important;
+}
+
+/* Bordas */
+.border,
+.border-top,
+.border-bottom,
+.border-start,
+.border-end {
+  border-color: var(--border-color) !important;
+}
+
+hr {
+  border-color: var(--border-color) !important;
+  opacity: 1;
+}
+
+/* Alerts */
+[data-theme="dark"] .alert {
+  border-color: var(--border-color);
+}
+
+/* Botão close (X dos modais) */
+.btn-close {
+  filter: var(--btn-close-filter, none);
+}
+
+[data-theme="dark"] .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* ══════════════════════════════════════════════
+   Botão de toggle do tema
+   ══════════════════════════════════════════════ */
+.btn-theme-toggle {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 20px;
+  padding: .25rem .65rem;
+  font-size: .85rem;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, color .2s;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  white-space: nowrap;
+}
+
+.btn-theme-toggle:hover {
+  background-color: var(--bg-hover);
+  border-color: #6f42c1;
+  color: #6f42c1;
+}
+
+/* Dentro da navbar (fundo sempre escuro independente do tema) */
+.navbar .btn-theme-toggle {
+  border-color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,.85);
+}
+
+.navbar .btn-theme-toggle:hover {
+  border-color: #fff;
+  color: #fff;
+  background: rgba(255,255,255,.1);
+}
+
+/* ══════════════════════════════════════════════
+   Transição suave ao trocar tema
+   ══════════════════════════════════════════════ */
+*, *::before, *::after {
+  transition:
+    background-color .25s ease,
+    border-color .25s ease,
+    color .2s ease;
+}
+
+/* Exceção: não aplica transição em elementos que ficam lentos */
+.kds-card,
+.kds-card *,
+button,
+a {
+  transition: none;
+}
+
+.btn-theme-toggle {
+  transition: background .2s, border-color .2s, color .2s !important;
+}
+
+/* ══════════════════════════════════════════════
+   Correções específicas — caixa.php
+   ══════════════════════════════════════════════ */
+
+/* body.bg-light hardcoded no caixa.php */
+[data-theme="dark"] body.bg-light {
+  background-color: #121212 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Relógio do caixa */
+[data-theme="dark"] .caixa-clock {
+  background: #2a2a3e !important;
+  color: #a0a0b0 !important;
+}
+
+/* Menu 3 pontinhos */
+[data-theme="dark"] .acoes-more .btn-dots {
+  border-color: #3a3a52 !important;
+  color: #a0a0b0 !important;
+}
+[data-theme="dark"] .acoes-more .btn-dots:hover {
+  background: #2a2a3e !important;
+  color: #e0e0e0 !important;
+}
+[data-theme="dark"] .acoes-more .dots-menu {
+  background: #1e1e2e !important;
+  border-color: #2e2e42 !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5) !important;
+}
+[data-theme="dark"] .acoes-more .dots-menu .dots-item {
+  color: #e0e0e0 !important;
+}
+[data-theme="dark"] .acoes-more .dots-menu .dots-item:hover {
+  background: #2a2a3e !important;
+}
+
+/* Fundo das linhas alternadas da tabela no modo escuro */
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+  --bs-table-accent-bg: #252535 !important;
+  background-color: #252535 !important;
+}
+
+/* Input de data */
+[data-theme="dark"] input[type="date"] {
+  color-scheme: dark;
+}
+
+/* Badges de status padrão Bootstrap que ficam com fundo claro */
+[data-theme="dark"] .badge.bg-light {
+  background-color: #3a3a52 !important;
+  color: #e0e0e0 !important;
+}
+
+/* ══════════════════════════════════════════════
+   Correções específicas — comanda.php / modal comandas
+   ══════════════════════════════════════════════ */
+[data-theme="dark"] .comanda-card,
+[data-theme="dark"] .kds-card {
+  background-color: #1e1e2e !important;
+  border-color: #2e2e42 !important;
+  color: #e0e0e0 !important;
+}
+
+/* ══════════════════════════════════════════════
+   Navbar — ícones emojis somem no modo claro
+   ══════════════════════════════════════════════ */
+/* A navbar sempre fica dark — os emojis ficam visíveis */
+#mainNavbar .nav-link {
+  opacity: 1 !important;
+}
+
+/* Esconde label do tema em telas pequenas */
+@media (max-width: 576px) {
+  .theme-label { display: none; }
+}
+
+/* ══════════════════════════════════════════════
+   Correções v2 — Admin + Comanda
+   ══════════════════════════════════════════════ */
+
+/* Linhas brancas da tabela no admin */
+[data-theme="dark"] .table > tbody > tr > td,
+[data-theme="dark"] .table > tbody > tr > th {
+  background-color: transparent !important;
+  color: #e0e0e0 !important;
+}
+
+[data-theme="dark"] .table > tbody > tr:nth-of-type(odd) > td,
+[data-theme="dark"] .table > tbody > tr:nth-of-type(odd) > th {
+  background-color: #252535 !important;
+}
+
+/* Botões outline no modo escuro (Editar, Excluir, etc) */
+[data-theme="dark"] .btn-outline-primary {
+  color: #7c9ef5 !important;
+  border-color: #7c9ef5 !important;
+}
+[data-theme="dark"] .btn-outline-primary:hover {
+  background-color: #7c9ef5 !important;
+  color: #121212 !important;
+}
+[data-theme="dark"] .btn-outline-danger {
+  color: #f87171 !important;
+  border-color: #f87171 !important;
+}
+[data-theme="dark"] .btn-outline-danger:hover {
+  background-color: #f87171 !important;
+  color: #121212 !important;
+}
+[data-theme="dark"] .btn-outline-secondary {
+  color: #a0a0b0 !important;
+  border-color: #a0a0b0 !important;
+}
+[data-theme="dark"] .btn-outline-secondary:hover {
+  background-color: #a0a0b0 !important;
+  color: #121212 !important;
+}
+
+/* Botões de produto na comanda — suaviza borda azul */
+[data-theme="dark"] .btn-outline-primary.produto-btn,
+[data-theme="dark"] button.btn-outline-primary {
+  border-color: #3a3a6a !important;
+  color: #a0b4ff !important;
+}
+[data-theme="dark"] button.btn-outline-primary:hover {
+  background-color: #2a2a5a !important;
+  color: #fff !important;
+  border-color: #6f42c1 !important;
+}
+
+/* Cabeçalho de cards/seções no admin */
+[data-theme="dark"] .card-header,
+[data-theme="dark"] .list-group-item-action {
+  background-color: #252535 !important;
+  color: #e0e0e0 !important;
+  border-color: #2e2e42 !important;
+}
+
+/* ══════════════════════════════════════════════
+   Correção v3 — Navbar emojis/ícones sumindo
+   no modo claro
+   ══════════════════════════════════════════════ */
+
+/* A navbar SEMPRE é escura — não deixar o tema claro
+   sobrescrever cores dos elementos internos */
+nav.navbar,
+nav.navbar *:not(.btn-theme-toggle):not(.theme-label) {
+  transition: none !important;
+}
+
+/* Garante que nav-links sempre sejam visíveis */
+.navbar .nav-link,
+.navbar .navbar-brand,
+.navbar .navbar-nav .nav-link {
+  color: rgba(255,255,255,.85) !important;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link.active {
+  color: #fff !important;
+}
+
+/* Corrige o toggler no mobile */
+.navbar-toggler-icon {
+  filter: invert(1) !important;
+}
+
+/* Remove interferência do tema claro na navbar */
+[data-theme="light"] nav.navbar,
+[data-theme="light"] .navbar {
+  background-color: #212529 !important;
+  border-bottom-color: #373b3e !important;
+}
+
+[data-theme="light"] .navbar .nav-link,
+[data-theme="light"] .navbar .navbar-brand {
+  color: rgba(255,255,255,.85) !important;
+}
+
+[data-theme="light"] .navbar .nav-link:hover {
+  color: #fff !important;
+}

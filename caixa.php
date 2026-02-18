@@ -1,5 +1,7 @@
 <?php
 // caixa.php - Painel do Caixa (MVP)
+require_once __DIR__ . '/auth.php';
+requireAdminOrRedirect();
 ?>
 <!doctype html>
 <html lang="pt-br">
@@ -8,6 +10,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Caixa - Comanda Rápida</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <script src="theme.js"></script>
+  <!-- depois vem o Bootstrap normalmente -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.x/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     .status-badge { min-width:100px; display:inline-block; text-align:center; }
 
@@ -27,6 +33,58 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
+
+    /* Menu 3 pontinhos */
+    .acoes-more {
+      position: relative;
+      display: inline-block;
+    }
+    .acoes-more .btn-dots {
+      background: none;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: .15rem .35rem;
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #555;
+    }
+    .acoes-more .btn-dots:hover {
+      background: #e9ecef;
+      color: #212529;
+    }
+    .acoes-more .dots-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      z-index: 1050;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15);
+      min-width: 170px;
+      padding: .25rem 0;
+    }
+    .acoes-more .dots-menu.show {
+      display: block;
+    }
+    .acoes-more .dots-menu .dots-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: .4rem .75rem;
+      font-size: .82rem;
+      cursor: pointer;
+      color: #333;
+      white-space: nowrap;
+    }
+    .acoes-more .dots-menu .dots-item:hover {
+      background: #f0f0f0;
+    }
+    .acoes-more .dots-menu .dots-item.text-danger { color: #dc3545; }
 
     .table td, .table th{
       vertical-align: middle;
@@ -53,16 +111,26 @@
         display:none;
       }
     }
+
+    .btn-eye:hover {
+      color: #212529;
+    }
+
+    /* ── Relógio discreto do caixa ── */
+    .caixa-clock {
+      font-family: 'Courier New', monospace;
+      font-size: .8rem;
+      color: #6c757d;
+      background: #f0f0f0;
+      padding: .2rem .5rem;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body class="bg-light">
 <?php require_once __DIR__ . '/partials/admin_nav.php'; ?>
-<?php
-require_once __DIR__ . '/auth.php';
-if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
-  echo '<div style="height:56px"></div>';
-}
-?>
+<?php echo '<div style="height:56px"></div>'; ?>
 <div class="container py-3">
   <!-- SESSÃO DE CAIXA -->
   <div id="caixa_session_bar" class="mb-3 d-flex align-items-center justify-content-between">
@@ -70,9 +138,13 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
   </div>
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="m-0">Caixa - Pedidos do dia</h3>
-    <div>
-      <label class="form-label mb-0 small">Data</label>
-      <input id="date" type="date" class="form-control form-control-sm" />
+    <div class="d-flex align-items-center gap-2">
+      <!-- Relógio discreto -->
+      <span class="caixa-clock" id="caixaClock">🕐 00:00:00</span>
+      <div>
+        <label class="form-label mb-0 small">Data</label>
+        <input id="date" type="date" class="form-control form-control-sm" />
+      </div>
     </div>
   </div>
 
@@ -98,6 +170,7 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
         <option value="PENDENTE">PENDENTE</option>
         <option value="EM_PREPARO">EM_PREPARO</option>
         <option value="PRONTO">PRONTO</option>
+        <option value="ENTREGUE">ENTREGUE</option>
         <option value="FIADO">FIADO</option>
         <option value="PAGO">PAGO</option>
         <option value="CANCELADO">CANCELADO</option>
@@ -119,12 +192,13 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
           <th>Mesa</th>
           <th>Status</th>
           <th>Total</th>
+          <th>Tempo</th>
           <th class="col-criadoem">Criado em</th>
           <th>Ações</th>
         </tr>
       </thead>
       <tbody id="tbody_pedidos">
-        <tr><td colspan="6" class="text-center small">Carregando...</td></tr>
+        <tr><td colspan="7" class="text-center small">Carregando...</td></tr>
       </tbody>
     </table>
   </div>
@@ -245,12 +319,14 @@ let _abrirModalInstance = null;
 let _fecharModalInstance = null;
 let _cancelarModalInstance = null;
 let _vincularModalInstance = null;
+let caixaAberto = false; // flag para controlar se o caixa está aberto
 
 function statusClass(status) {
   switch ((status || '').toUpperCase()) {
     case 'PENDENTE': return 'badge bg-secondary';
     case 'EM_PREPARO': return 'badge bg-warning text-dark';
     case 'PRONTO': return 'badge bg-primary';
+    case 'ENTREGUE': return 'badge bg-info';
     case 'FIADO': return 'badge bg-info text-dark';
     case 'PAGO': return 'badge bg-success';
     case 'CANCELADO': return 'badge bg-danger';
@@ -275,6 +351,42 @@ function formatBRL(value) {
   });
 }
 
+// Helper: escape HTML for safe insertion into templates
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+// Helper: lê o valor digitado em #fechDesconto (formato com vírgula) e retorna float ou null
+function getDescontoDigitado() {
+  try {
+    const v = (document.querySelector('#fechDesconto')?.value || '').trim();
+    if (!v) return null;
+    const s = v.replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(s);
+    return isNaN(n) ? null : n;
+  } catch (e) { return null; }
+}
+
+// Calcula tempo total: do lançamento (created_at) até ficar pronto (pronto_at)
+// Se ainda não ficou pronto, conta até agora (tempo corrente)
+function calcTempoTotal(createdAt, prontoAt) {
+  if (!createdAt) return '';
+  const inicio = new Date(createdAt.replace(' ', 'T'));
+  const fim = prontoAt ? new Date(prontoAt.replace(' ', 'T')) : new Date();
+  const diff = Math.max(0, Math.floor((fim - inicio) / 1000));
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = diff % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2,'0')}min`;
+  return `${m}min ${String(s).padStart(2,'0')}s`;
+}
+
 async function fetchCaixaStatus() {
   try {
     const res = await fetch('api/caixa_status.php');
@@ -289,6 +401,7 @@ function renderCaixaBar(sessao) {
   if (!bar) return;
   bar.innerHTML = '';
   if (!sessao) {
+    caixaAberto = false;
     const left = document.createElement('div');
     left.innerHTML = '<strong>Caixa fechado</strong>';
     const btn = document.createElement('button'); btn.type='button'; btn.className='btn btn-sm btn-primary'; btn.textContent='Abrir Caixa';
@@ -297,6 +410,7 @@ function renderCaixaBar(sessao) {
     return;
   }
 
+  caixaAberto = true;
   currentSessaoId = parseInt(sessao.id) || 0;
   const left = document.createElement('div');
   left.innerHTML = `<div><strong>Sessão #${sessao.id}</strong> aberta em ${sessao.opened_at}</div>`;
@@ -467,7 +581,7 @@ function openVincularFiadoModal(fiado) {
       select.innerHTML = '';
       const pedidos = window._lastPedidos || [];
       // candidatos: qualquer comanda aberta na SESSÃO atual com status específico (sem filtro por mesa)
-      let candidatos = pedidos.filter(p => ['PENDENTE','EM_PREPARO','PRONTO'].includes((p.status||'').toUpperCase()));
+      let candidatos = pedidos.filter(p => ['PENDENTE','EM_PREPARO','PRONTO','ENTREGUE'].includes((p.status||'').toUpperCase()));
 
       // Ordenar por mesa ASC e id DESC
       candidatos.sort((a, b) => {
@@ -527,7 +641,7 @@ async function loadPedidos() {
     if (!resp.ok) throw new Error('HTTP error ' + resp.status);
     const data = await resp.json();
     if (!data || !data.success) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro ao carregar</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar</td></tr>';
       console.error('listar_pedidos error', data);
       return;
     }
@@ -549,7 +663,7 @@ async function loadPedidos() {
     // tabela
     tbody.innerHTML = '';
     if (!data.pedidos || data.pedidos.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center small">Nenhum pedido</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center small">Nenhum pedido</td></tr>';
       return;
     }
 
@@ -568,6 +682,7 @@ async function loadPedidos() {
         <td>${p.mesa}</td>
         <td><span class="${statusClass(p.status)} status-badge">${p.status}</span></td>
         <td>${formatBRL(p.total)}</td>
+        <td>${calcTempoTotal(p.created_at, p.pronto_at)}</td>
         <td class="small col-criadoem">${p.created_at}</td>
         <td></td>
       `;
@@ -610,7 +725,6 @@ async function loadPedidos() {
       };
 
       const btnCupom = makeBtn('btn btn-sm btn-outline-primary me-1','Cupom', () => window.open('printer/cupom.php?pedido_id=' + p.id, '_blank'));
-      const btnReimpr = makeBtn('btn btn-sm btn-outline-secondary me-1','Reimprimir', () => reimprimir(p.id));
 
       // define botões usados nas diferentes branches de status
       const btnPrep = makeBtn('btn btn-sm btn-warning me-1', 'Em preparo', () => {
@@ -629,33 +743,86 @@ async function loadPedidos() {
         b.dataset.id = p.id;
         return b;
       })();
-      const btnFiado = makeBtn('btn btn-sm btn-secondary me-1','Marcar Fiado', () => { (async () => { if (await atualizarStatus(p.id, 'FIADO')) await loadPedidos(); })(); });
-      const btnVoltarPendente = makeBtn('btn btn-sm btn-outline-secondary me-1','Voltar Pendente', () => { if (confirm('Confirma voltar este pedido para PENDENTE?')) atualizarStatus(p.id, 'PENDENTE'); });
-      const btnVoltarEmPrep = makeBtn('btn btn-sm btn-outline-secondary me-1','Voltar Em preparo', () => { if (confirm('Confirma voltar este pedido para EM_PREPARO?')) atualizarStatus(p.id, 'EM_PREPARO'); });
-      const btnCancelar = makeBtn('btn btn-sm btn-danger me-1','Cancelar', () => abrirCancelarModal(p.id));
 
+      // Botões principais visíveis
       tdAcoes.appendChild(btnCupom);
-      tdAcoes.appendChild(btnReimpr);
 
-      switch (p.status) {
-        case 'PENDENTE':
-          tdAcoes.appendChild(btnPrep);
-          tdAcoes.appendChild(btnCancelar);
-          break;
-        case 'EM_PREPARO':
-          tdAcoes.appendChild(btnPronto);
-          tdAcoes.appendChild(btnVoltarPendente);
-          tdAcoes.appendChild(btnCancelar);
-          break;
-        case 'PRONTO':
-          tdAcoes.appendChild(btnPago);
-          tdAcoes.appendChild(btnFiado);
-          tdAcoes.appendChild(btnVoltarEmPrep);
-          tdAcoes.appendChild(btnCancelar);
-          break;
-        case 'PAGO':
-        case 'CANCELADO':
-          break;
+      // Só exibir botões de ação se o caixa estiver aberto
+      if (caixaAberto) {
+        // Botões secundários vão no menu ⋮
+        const menuItems = [];
+
+        switch (p.status) {
+          case 'PENDENTE':
+            tdAcoes.appendChild(btnPrep);
+            menuItems.push({ text: '🖨️ Reimprimir', onClick: () => reimprimir(p.id) });
+            menuItems.push({ text: '❌ Cancelar', onClick: () => abrirCancelarModal(p.id), cls: 'text-danger' });
+            break;
+          case 'EM_PREPARO':
+            tdAcoes.appendChild(btnPronto);
+            menuItems.push({ text: '🖨️ Reimprimir', onClick: () => reimprimir(p.id) });
+            menuItems.push({ text: '⬅️ Voltar Pendente', onClick: () => { if (confirm('Confirma voltar este pedido para PENDENTE?')) { atualizarStatus(p.id, 'PENDENTE').then(() => loadPedidos()); } } });
+            menuItems.push({ text: '❌ Cancelar', onClick: () => abrirCancelarModal(p.id), cls: 'text-danger' });
+            break;
+          case 'PRONTO':
+            tdAcoes.appendChild(btnPago);
+            menuItems.push({ text: '🖨️ Reimprimir', onClick: () => reimprimir(p.id) });
+            menuItems.push({ text: '💳 Marcar Fiado', onClick: () => { (async () => { if (await atualizarStatus(p.id, 'FIADO')) await loadPedidos(); })(); } });
+            menuItems.push({ text: '⬅️ Voltar Em preparo', onClick: () => { if (confirm('Confirma voltar este pedido para EM_PREPARO?')) { atualizarStatus(p.id, 'EM_PREPARO').then(() => loadPedidos()); } } });
+            menuItems.push({ text: '❌ Cancelar', onClick: () => abrirCancelarModal(p.id), cls: 'text-danger' });
+            break;
+          case 'ENTREGUE':
+            tdAcoes.appendChild(btnPago);
+            menuItems.push({ text: '🖨️ Reimprimir', onClick: () => reimprimir(p.id) });
+            menuItems.push({ text: '💳 Marcar Fiado', onClick: () => { (async () => { if (await atualizarStatus(p.id, 'FIADO')) await loadPedidos(); })(); } });
+            menuItems.push({ text: '⬅️ Voltar Pronto', onClick: () => { if (confirm('Confirma voltar este pedido para PRONTO?')) { atualizarStatus(p.id, 'PRONTO').then(() => loadPedidos()); } } });
+            menuItems.push({ text: '❌ Cancelar', onClick: () => abrirCancelarModal(p.id), cls: 'text-danger' });
+            break;
+          case 'PAGO':
+          case 'CANCELADO':
+            menuItems.push({ text: '🖨️ Reimprimir', onClick: () => reimprimir(p.id) });
+            break;
+        }
+
+        // Montar menu ⋮ se houver itens
+        if (menuItems.length > 0) {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'acoes-more';
+
+          const btnDots = document.createElement('button');
+          btnDots.type = 'button';
+          btnDots.className = 'btn-dots';
+          btnDots.textContent = '⋮';
+          btnDots.title = 'Mais opções';
+
+          const menu = document.createElement('div');
+          menu.className = 'dots-menu';
+
+          menuItems.forEach(item => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'dots-item' + (item.cls ? ' ' + item.cls : '');
+            b.textContent = item.text;
+            b.addEventListener('click', (e) => {
+              e.stopPropagation();
+              menu.classList.remove('show');
+              item.onClick();
+            });
+            menu.appendChild(b);
+          });
+
+          btnDots.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Fechar outros menus abertos
+            document.querySelectorAll('.dots-menu.show').forEach(m => { if (m !== menu) m.classList.remove('show'); });
+            menu.classList.toggle('show');
+            pauseAutoRefresh(5000);
+          });
+
+          wrapper.appendChild(btnDots);
+          wrapper.appendChild(menu);
+          tdAcoes.appendChild(wrapper);
+        }
       }
 
       tbody.appendChild(tr);
@@ -663,7 +830,7 @@ async function loadPedidos() {
 
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro ao carregar (ver console)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar (ver console)</td></tr>';
   } finally {
     isLoading = false;
   }
@@ -674,6 +841,27 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('date').value = new Date().toISOString().slice(0,10);
   document.getElementById('status_filter').addEventListener('change', loadPedidos);
   document.getElementById('date').addEventListener('change', loadPedidos);
+
+  // ── Relógio discreto atualizado a cada segundo ──
+  function updateCaixaClock() {
+    const now = new Date();
+    const d = String(now.getDate()).padStart(2,'0');
+    const m = String(now.getMonth()+1).padStart(2,'0');
+    const h = String(now.getHours()).padStart(2,'0');
+    const min = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+    const el = document.getElementById('caixaClock');
+    if (el) el.textContent = `🕐 ${d}/${m} ${h}:${min}:${s}`;
+  }
+  updateCaixaClock();
+  setInterval(updateCaixaClock, 1000);
+
+  // ── Fechar menu ⋮ ao clicar fora ──
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.acoes-more')) {
+      document.querySelectorAll('.dots-menu.show').forEach(m => m.classList.remove('show'));
+    }
+  });
 
   // search mesa com debounce
   let mesaTimer = null;
@@ -799,12 +987,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sess && sess.id) {
       currentSessaoId = parseInt(sess.id);
       loadPedidos();
+    } else {
+      // Caixa fechado: limpar tabela e mostrar mensagem
+      const tbody = document.getElementById('tbody_pedidos');
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Caixa fechado. Abra o caixa para visualizar os pedidos.</td></tr>';
+      document.getElementById('total_vendido').textContent = 'R$ 0,00';
+      document.getElementById('counters').innerHTML = '';
     }
   })();
 
-  // Auto-refresh seguro a cada 5 segundos; pausável
+  // Auto-refresh seguro a cada 5 segundos; pausável — só quando caixa aberto
   _refreshInterval = setInterval(() => {
-    if (canAutoRefresh() && !document.hidden) loadPedidos();
+    if (caixaAberto && canAutoRefresh() && !document.hidden) loadPedidos();
   }, 5000);
 
   // Pausar quando aba estiver oculta
@@ -828,8 +1022,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ===== Fechamento de Comanda: comportamentos adicionais =====
-  const FECH = { pedidoId: null, mesa: null, pendencias_total: 0, subtotal: 0, total_a_pagar: 0 };
+  const FECH = { pedidoId: null, pedidoIds: [], mesa: null, pendencias_total: 0, subtotal: 0, total_a_pagar: 0 };
   let FECH_LAST_PEDIDO = null;
+
+  // Recalcular resumo em tempo real ao digitar desconto
+  const fechDescontoInput = document.getElementById('fechDesconto');
+  if (fechDescontoInput) {
+    fechDescontoInput.addEventListener('input', () => {
+      recalcularResumo({ pedido: FECH_LAST_PEDIDO });
+    });
+  }
 
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('.btn-finalizar');
@@ -849,21 +1051,50 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok || !data.ok) return mostrarErro(data.error || 'Erro ao carregar comanda');
 
       FECH.mesa = data.pedido.mesa;
-      FECH.pendencias_total = parseFloat(data.pedido.pendencias_total || 0);
-      // guardar subtotal atual para uso local durante o fechamento
-      FECH.subtotal = parseFloat(data.pedido.total || 0);
-      // guardar último pedido carregado para uso nas recalculações
-      FECH_LAST_PEDIDO = data.pedido || null;
 
-      document.querySelector('#fechamentoTitulo').textContent = `Fechamento Mesa ${FECH.mesa} (Comanda #${FECH.pedidoId})`;
+      // Usar dados agrupados da mesa (todos os pedidos abertos da mesma mesa na sessão)
+      const group = data.mesa_group || null;
+      if (group && group.pedido_ids && group.pedido_ids.length > 0) {
+        FECH.pedidoIds = group.pedido_ids;
+        FECH.pendencias_total = parseFloat(group.pendencias_total || 0);
+        FECH.subtotal = parseFloat(group.total || 0);
+
+        const qtdPedidos = group.pedido_ids.length;
+        const idsLabel = group.pedido_ids.map(id => '#' + id).join(', ');
+        if (qtdPedidos > 1) {
+          document.querySelector('#fechamentoTitulo').textContent = `Fechamento Mesa ${FECH.mesa} (${qtdPedidos} comandas: ${idsLabel})`;
+        } else {
+          document.querySelector('#fechamentoTitulo').textContent = `Fechamento Mesa ${FECH.mesa} (Comanda #${FECH.pedidoId})`;
+        }
+
+        // Renderizar itens de TODOS os pedidos da mesa
+        renderItens(group.itens || [], group.pedidos || []);
+
+        // Montar pedido virtual para recalcularResumo
+        FECH_LAST_PEDIDO = {
+          total: group.total,
+          pendencias_total: group.pendencias_total,
+          desconto: data.pedido.desconto || 0,
+          observacoes: data.pedido.observacoes || '',
+        };
+      } else {
+        // Fallback: pedido único
+        FECH.pedidoIds = [FECH.pedidoId];
+        FECH.pendencias_total = parseFloat(data.pedido.pendencias_total || 0);
+        FECH.subtotal = parseFloat(data.pedido.total || 0);
+        FECH_LAST_PEDIDO = data.pedido || null;
+
+        document.querySelector('#fechamentoTitulo').textContent = `Fechamento Mesa ${FECH.mesa} (Comanda #${FECH.pedidoId})`;
+        renderItens(data.itens || []);
+      }
+
       document.querySelector('#fechObs').value = data.pedido.observacoes || '';
       const descontoInicial = parseFloat(data.pedido.desconto || 0);
       document.querySelector('#fechDesconto').value = descontoInicial > 0
         ? descontoInicial.toFixed(2).replace('.', ',')
         : '';
 
-      renderItens(data.itens || []);
-      recalcularResumo(data);
+      recalcularResumo({ pedido: FECH_LAST_PEDIDO });
 
       new bootstrap.Modal(document.getElementById('modalFechamento')).show();
     } catch (err) {
@@ -872,85 +1103,104 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // helper: escape HTML for insertion into templates
-  function escapeHtml(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
-
-  // helper: lê o valor digitado em #fechDesconto (formato com vírgula) e retorna float ou null
-  function getDescontoDigitado() {
-    try {
-      const v = (document.querySelector('#fechDesconto')?.value || '').trim();
-      if (!v) return null;
-      const s = v.replace(/\./g, '').replace(',', '.');
-      const n = parseFloat(s);
-      return isNaN(n) ? null : n;
-    } catch (e) { return null; }
-  }
-
-  function renderItens(itens) {
+  function renderItens(itens, pedidosList) {
     const tb = document.querySelector('#fechItens');
-    tb.innerHTML = (itens || []).map(it => `
-      <tr data-item-id="${it.item_id}">
-        <td>${escapeHtml(it.nome)}</td>
-        <td>
-          <div class="d-flex align-items-center gap-1">
-            <button class="btn btn-sm btn-outline-secondary btn-minus">-</button>
-            <span class="px-2">${it.quantidade}</span>
-            <button class="btn btn-sm btn-outline-secondary btn-plus">+</button>
-          </div>
-        </td>
-        <td>${formatBRL(it.subtotal)}</td>
-        <td class="text-end">
-          <button class="btn btn-sm btn-outline-danger btn-del">🗑️</button>
-        </td>
-      </tr>
-    `).join('');
+    // Se houver múltiplos pedidos, mostrar separador com o nº do pedido
+    const multiplePedidos = pedidosList && pedidosList.length > 1;
+    let html = '';
+    let lastPedidoId = null;
+
+    (itens || []).forEach(it => {
+      // Separador entre pedidos diferentes
+      if (multiplePedidos && it.pedido_id && it.pedido_id !== lastPedidoId) {
+        lastPedidoId = it.pedido_id;
+        const pedInfo = pedidosList.find(p => p.id == it.pedido_id);
+        const statusLabel = pedInfo ? ` — ${pedInfo.status}` : '';
+        html += `<tr class="table-secondary"><td colspan="4" class="small fw-bold">📋 Comanda #${it.pedido_id}${statusLabel}</td></tr>`;
+      }
+
+      html += `
+        <tr data-item-id="${it.item_id}" data-pedido-id="${it.pedido_id || FECH.pedidoId}">
+          <td>${escapeHtml(it.nome)}</td>
+          <td>
+            <div class="d-flex align-items-center gap-1">
+              <button class="btn btn-sm btn-outline-secondary btn-minus">-</button>
+              <span class="px-2">${it.quantidade}</span>
+              <button class="btn btn-sm btn-outline-secondary btn-plus">+</button>
+            </div>
+          </td>
+          <td>${formatBRL(it.subtotal)}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-danger btn-del">🗑️</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    tb.innerHTML = html;
   }
 
   document.querySelector('#fechItens').addEventListener('click', async (e) => {
-    const tr = e.target.closest('tr');
+    const tr = e.target.closest('tr[data-item-id]');
     if (!tr) return;
     const itemId = parseInt(tr.getAttribute('data-item-id'), 10);
+    const pedidoIdForItem = parseInt(tr.getAttribute('data-pedido-id'), 10) || FECH.pedidoId;
 
-    if (e.target.closest('.btn-plus'))  return await ajustarItem(itemId, +1);
-    if (e.target.closest('.btn-minus')) return await ajustarItem(itemId, -1);
-    if (e.target.closest('.btn-del'))   return await removerItem(itemId);
+    if (e.target.closest('.btn-plus'))  return await ajustarItem(itemId, +1, pedidoIdForItem);
+    if (e.target.closest('.btn-minus')) return await ajustarItem(itemId, -1, pedidoIdForItem);
+    if (e.target.closest('.btn-del'))   return await removerItem(itemId, pedidoIdForItem);
   });
 
-  async function ajustarItem(itemId, delta) {
+  async function ajustarItem(itemId, delta, pedidoIdForItem) {
+    const pid = pedidoIdForItem || FECH.pedidoId;
     try {
       const res = await fetch('api/itens_pedido_ajustar.php', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pedido_id: FECH.pedidoId, item_id: itemId, delta })
+        body: JSON.stringify({ pedido_id: pid, item_id: itemId, delta })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) return mostrarErro(data.error || 'Erro ao ajustar item');
-      // atualizar último pedido e recalcular
-      FECH_LAST_PEDIDO = data.pedido || FECH_LAST_PEDIDO;
-      renderItens(data.itens);
-      recalcularResumo(data);
+      // Recarregar dados agrupados da mesa
+      await reloadFechamento();
     } catch (e) { mostrarErro('Erro de rede'); }
   }
 
-  async function removerItem(itemId) {
+  async function removerItem(itemId, pedidoIdForItem) {
+    const pid = pedidoIdForItem || FECH.pedidoId;
     try {
       const res = await fetch('api/itens_pedido_remover.php', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pedido_id: FECH.pedidoId, item_id: itemId })
+        body: JSON.stringify({ pedido_id: pid, item_id: itemId })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) return mostrarErro(data.error || 'Erro ao remover item');
-      FECH_LAST_PEDIDO = data.pedido || FECH_LAST_PEDIDO;
-      renderItens(data.itens);
-      recalcularResumo(data);
+      // Recarregar dados agrupados da mesa
+      await reloadFechamento();
     } catch (e) { mostrarErro('Erro de rede'); }
+  }
+
+  // Recarrega os dados agrupados no modal sem fechar/reabrir
+  async function reloadFechamento() {
+    try {
+      const res = await fetch(`api/pedido_detalhes.php?id=${FECH.pedidoId}`);
+      const data = await res.json();
+      if (!res.ok || !data.ok) return;
+      const group = data.mesa_group || null;
+      if (group && group.pedido_ids && group.pedido_ids.length > 0) {
+        FECH.pedidoIds = group.pedido_ids;
+        FECH.subtotal = parseFloat(group.total || 0);
+        FECH.pendencias_total = parseFloat(group.pendencias_total || 0);
+        FECH_LAST_PEDIDO = { total: group.total, pendencias_total: group.pendencias_total, desconto: data.pedido.desconto || 0 };
+        renderItens(group.itens || [], group.pedidos || []);
+      } else {
+        FECH.pedidoIds = [FECH.pedidoId];
+        FECH.subtotal = parseFloat(data.pedido.total || 0);
+        FECH.pendencias_total = parseFloat(data.pedido.pendencias_total || 0);
+        FECH_LAST_PEDIDO = data.pedido || null;
+        renderItens(data.itens || []);
+      }
+      recalcularResumo({ pedido: FECH_LAST_PEDIDO });
+    } catch (e) { console.error('reloadFechamento error', e); }
   }
 
   // Cardápio rápido: carregar produtos UMA vez e filtrar no cliente
@@ -1044,6 +1294,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyFilters(){
     const q = (document.getElementById('buscaProdutoRapida').value || '').trim().toLowerCase();
+    const sugEl = document.getElementById('buscaSugestoesFech');
+
     FILTERED_PRODUCTS = ALL_PRODUCTS.filter(p => {
       const pCat = catNorm(p.categoria);
       if (categoriaSelecionada && categoriaSelecionada !== 'Todas'){
@@ -1052,9 +1304,28 @@ document.addEventListener('DOMContentLoaded', () => {
       if (q){
         return (p.nome||'').toLowerCase().includes(q);
       }
-      return true;
+      return false; // sem busca = não mostra lista
     });
-    renderLista();
+
+    // Mostrar sugestões dropdown
+    if (q.length >= 2 && sugEl) {
+      if (FILTERED_PRODUCTS.length > 0) {
+        sugEl.innerHTML = FILTERED_PRODUCTS.slice(0, 15).map(p => {
+          const disabled = (Number(p.controla_estoque||0)===1 && Number(p.estoque_atual||0) <= 0);
+          return `<button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center sug-item-fech" data-id="${p.id}" ${disabled ? 'disabled' : ''}>
+            <span>${escapeHtml(p.nome)}</span>
+            <span class="text-muted">${formatPrice(p.preco)}</span>
+          </button>`;
+        }).join('');
+        sugEl.style.display = 'block';
+      } else {
+        sugEl.innerHTML = '<div class="list-group-item text-muted">Nenhum item encontrado</div>';
+        sugEl.style.display = 'block';
+      }
+    } else if (sugEl) {
+      sugEl.style.display = 'none';
+      sugEl.innerHTML = '';
+    }
   }
 
   // debounce search + init-once flag
@@ -1080,6 +1351,32 @@ document.addEventListener('DOMContentLoaded', () => {
             applyFilters();
           }
         }
+      });
+      // Esconde sugestões ao perder foco (com delay para permitir clique)
+      input.addEventListener('blur', ()=>{
+        setTimeout(() => {
+          const sugEl = document.getElementById('buscaSugestoesFech');
+          if (sugEl) sugEl.style.display = 'none';
+        }, 250);
+      });
+    }
+
+    // Clique nas sugestões do dropdown
+    const sugContainer = document.getElementById('buscaSugestoesFech');
+    if (sugContainer) {
+      sugContainer.addEventListener('click', (e) => {
+        const item = e.target.closest('.sug-item-fech');
+        if (!item) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const id = Number(item.dataset.id);
+        if (!id) return;
+        addProdutoToPedido(id);
+        // Limpa busca e sugestões
+        const inp = document.getElementById('buscaProdutoRapida');
+        if (inp) inp.value = '';
+        sugContainer.style.display = 'none';
+        sugContainer.innerHTML = '';
       });
     }
 
@@ -1139,7 +1436,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   document.querySelector('#btnImprimirPrevia')?.addEventListener('click', () => {
-    window.open(`printer/cupom.php?pedido_id=${FECH.pedidoId}&previa=1`, '_blank');
+    // Se tiver múltiplos pedidos agrupados, usar pedido_ids para cupom unificado
+    if (FECH.pedidoIds && FECH.pedidoIds.length > 1) {
+      window.open(`printer/cupom.php?pedido_ids=${FECH.pedidoIds.join(',')}&previa=1`, '_blank');
+    } else {
+      window.open(`printer/cupom.php?pedido_id=${FECH.pedidoId}&previa=1`, '_blank');
+    }
   });
 
   document.querySelector('#btnConfirmarPagamento')?.addEventListener('click', async () => {
@@ -1149,12 +1451,20 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch('api/finalizar_comanda.php', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pedido_id: FECH.pedidoId, metodo_pagamento: metodo })
+        body: JSON.stringify({ pedido_ids: FECH.pedidoIds, metodo_pagamento: metodo })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) return mostrarErro(data.error || 'Erro ao finalizar');
 
       bootstrap.Modal.getInstance(document.getElementById('modalFechamento')).hide();
+
+      // Abrir cupom unificado para impressão do cliente
+      if (FECH.pedidoIds && FECH.pedidoIds.length > 1) {
+        window.open(`printer/cupom.php?pedido_ids=${FECH.pedidoIds.join(',')}`, '_blank');
+      } else {
+        window.open(`printer/cupom.php?pedido_id=${FECH.pedidoId}`, '_blank');
+      }
+
       await loadPedidos();
       await fetchPendencias();
     } catch (e) { mostrarErro('Erro de rede'); }
@@ -1205,10 +1515,14 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
 
       <div class="modal-body">
-        <!-- Cardápio rápido: busca, categorias, TOP e lista de produtos -->
+        <!-- Erro -->
+        <div id="fechErro" class="alert alert-danger" style="display:none;"></div>
+
+        <!-- Cardápio rápido: busca, categorias e TOP -->
         <div class="mb-2">
           <div class="mb-2">
             <input id="buscaProdutoRapida" class="form-control" placeholder="Buscar item..." autocomplete="off">
+            <div id="buscaSugestoesFech" class="list-group mt-1" style="display:none; position:absolute; z-index:1050; left:0; right:0; max-height:40vh; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,.15); border-radius:8px;"></div>
           </div>
           <div id="chipsCategorias" class="mb-2 d-flex gap-2 flex-wrap"></div>
 
@@ -1216,8 +1530,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <h6 class="mb-2">🔥 Mais pedidos</h6>
             <div id="topGrid" class="d-flex flex-wrap gap-2"></div>
           </div>
-
-          <div id="listaProdutos" class="row g-2"></div>
         </div>
 
         <!-- Itens -->
@@ -1270,12 +1582,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <option value="DEBITO">Cartão Débito</option>
           </select>
 
-          <button class="btn btn-primary ms-auto" id="btnConfirmarPagamento">
-            Concluir e baixar comanda
-          </button>
+          <button class="btn btn-success" id="btnConfirmarPagamento">✅ Confirmar Pagamento</button>
         </div>
-
-        <div class="text-danger small mt-2" id="fechErro" style="display:none;"></div>
       </div>
     </div>
   </div>

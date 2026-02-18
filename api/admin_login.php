@@ -49,15 +49,9 @@ try {
         exit;
     }
 
-    if (($user['role'] ?? '') !== 'admin') {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Sem permissão']);
-        exit;
-    }
-
-    // login
+    // login (admin e staff permitidos)
     loginAs($user);
-    echo json_encode(['success' => true]);
+    echo json_encode(['success' => true, 'role' => $user['role']]);
     exit;
 
 } catch (Throwable $e) {

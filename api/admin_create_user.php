@@ -15,13 +15,13 @@ if (!is_array($input)) {
 
 $username = trim((string)($input['username'] ?? ''));
 $password = (string)($input['password'] ?? '');
-$role = (string)($input['role'] ?? 'staff');
+$role = (string)($input['role'] ?? 'garcom');
 
 $errors = [];
 if (strlen($username) < 3 || strlen($username) > 50) $errors[] = 'username deve ter entre 3 e 50 caracteres';
 if (preg_match('/\s/', $username)) $errors[] = 'username não pode conter espaços';
 if (strlen($password) < 6) $errors[] = 'password deve ter ao menos 6 caracteres';
-if (!in_array($role, ['admin','staff'])) $errors[] = 'role inválida';
+if (!in_array($role, ['admin','garcom','cozinha'])) $errors[] = 'role inválida';
 
 if (!empty($errors)) {
     http_response_code(400);

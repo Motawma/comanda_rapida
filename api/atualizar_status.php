@@ -12,7 +12,7 @@ if ($pedidoId <= 0 || $status === '') {
     exit;
 }
 
-$allowed = ['PENDENTE','EM_PREPARO','PRONTO','FIADO','PAGO','CANCELADO'];
+$allowed = ['PENDENTE','EM_PREPARO','PRONTO','ENTREGUE','FIADO','PAGO','CANCELADO'];
 if (!in_array($status, $allowed)) {
     header('HTTP/1.1 400 Bad Request');
     echo json_encode(['success' => false, 'message' => 'Status inválido']);
@@ -29,11 +29,13 @@ if (!$pedido) {
 $current = $pedido['status'];
 
 // Regras de transição permitidas (agora aceitamos correções para trás)
+// ENTREGUE agora pode ir para EM_PREPARO (quando novos itens são adicionados)
 $transitions = [
     'PENDENTE' => ['EM_PREPARO','CANCELADO'],
-    'EM_PREPARO' => ['PRONTO','CANCELADO','PENDENTE'], // permite voltar a PENDENTE
-    'PRONTO' => ['PAGO','CANCELADO','EM_PREPARO','FIADO'],   // permite marcar FIADO
-    'FIADO' => ['PAGO','CANCELADO'], // pendência pode ser paga ou cancelada
+    'EM_PREPARO' => ['PRONTO','CANCELADO','PENDENTE'],
+    'PRONTO' => ['ENTREGUE','CANCELADO','EM_PREPARO','FIADO'],
+    'ENTREGUE' => ['PAGO','CANCELADO','PRONTO','FIADO','EM_PREPARO','PENDENTE'], // permite voltar para preparo quando tem novos itens
+    'FIADO' => ['PAGO','CANCELADO'],
     'PAGO' => [],
     'CANCELADO' => []
 ];
@@ -52,7 +54,14 @@ if (!in_array($status, $allowedNext)) {
 
 // Delega a lógica de gravação/limpeza de timestamps para funcoes.php
 $ok = atualizarStatusPedido($pedidoId, $status);
+
 if ($ok) {
+    // Após atualizar, sincronizar o status do pedido com base nos itens
+    try {
+        sincronizarStatusPedidoComItens($pedidoId);
+    } catch (Throwable $e) {
+        // ignora se a função não estiver disponível
+    }
     echo json_encode(['success' => true, 'message' => 'Status atualizado']);
 } else {
     // se tentativa de marcar PAGO falhou por falta de sessao aberta, retorna mensagem clara

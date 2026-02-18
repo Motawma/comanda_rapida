@@ -9,3 +9,7 @@ define('DB_PASS', ''); // senha padrão do XAMPP é vazia
 
 // Caminho base (opcional)
 define('BASE_PATH', __DIR__);
+
+// ── Timezone do sistema (horário de Brasília) ──
+// Mude aqui se o estabelecimento estiver em outro fuso
+date_default_timezone_set('America/Sao_Paulo');

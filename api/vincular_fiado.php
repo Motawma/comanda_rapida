@@ -64,11 +64,11 @@ try {
     }
 
     // Verify pedido status
-    $allowed = ['PENDENTE','EM_PREPARO','PRONTO'];
+    $allowed = ['PENDENTE','EM_PREPARO','PRONTO','ENTREGUE'];
     if (!in_array(($pedido['status'] ?? ''), $allowed, true)) {
         $pdo->rollBack();
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Pedido destino deve estar em status PENDENTE, EM_PREPARO ou PRONTO']);
+        echo json_encode(['success' => false, 'message' => 'Pedido destino deve estar em status PENDENTE, EM_PREPARO, PRONTO ou ENTREGUE']);
         exit;
     }
 

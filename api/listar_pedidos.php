@@ -26,7 +26,7 @@ if ($sessaoId > 0) {
             'sessao_id' => $sessaoId,
             'status_filter' => $status,
             'pedidos' => [],
-            'contadores' => ['PENDENTE'=>0,'EM_PREPARO'=>0,'PRONTO'=>0,'FIADO'=>0,'PAGO'=>0,'CANCELADO'=>0],
+            'contadores' => ['PENDENTE'=>0,'EM_PREPARO'=>0,'PRONTO'=>0,'ENTREGUE'=>0,'FIADO'=>0,'PAGO'=>0,'CANCELADO'=>0],
             'total_vendido' => 0.0,
         ], JSON_UNESCAPED_UNICODE);
         exit;
@@ -59,6 +59,8 @@ if ($sessaoId > 0) {
             'pendencias_total' => $pendencias_total,
             'total_a_pagar' => $total_a_pagar,
             'created_at' => (string)$p['created_at'],
+            'em_preparo_at' => $p['em_preparo_at'] ?? null,
+            'pronto_at' => $p['pronto_at'] ?? null,
         ];
     }
 
@@ -66,7 +68,7 @@ if ($sessaoId > 0) {
     $cntStmt = $pdo->prepare("SELECT status, COUNT(*) AS c FROM pedidos WHERE caixa_sessao_id = ? GROUP BY status");
     $cntStmt->execute([$sessaoId]);
     $rows = $cntStmt->fetchAll();
-    $statuses = ['PENDENTE'=>0,'EM_PREPARO'=>0,'PRONTO'=>0,'FIADO'=>0,'PAGO'=>0,'CANCELADO'=>0];
+    $statuses = ['PENDENTE'=>0,'EM_PREPARO'=>0,'PRONTO'=>0,'ENTREGUE'=>0,'FIADO'=>0,'PAGO'=>0,'CANCELADO'=>0];
     foreach ($rows as $r) {
         $statuses[$r['status']] = (int)$r['c'];
     }
@@ -94,7 +96,7 @@ if ($isCaixaContext) {
         'sessao_id' => 0,
         'status_filter' => $status,
         'pedidos' => [],
-        'contadores' => ['PENDENTE'=>0,'EM_PREPARO'=>0,'PRONTO'=>0,'FIADO'=>0,'PAGO'=>0,'CANCELADO'=>0],
+        'contadores' => ['PENDENTE'=>0,'EM_PREPARO'=>0,'PRONTO'=>0,'ENTREGUE'=>0,'FIADO'=>0,'PAGO'=>0,'CANCELADO'=>0],
         'total_vendido' => 0.0,
     ], JSON_UNESCAPED_UNICODE);
     exit;
@@ -123,6 +125,8 @@ foreach ($pedidos as $p) {
         'pendencias_total' => $pendencias_total,
         'total_a_pagar' => $total_a_pagar,
         'created_at' => (string)$p['created_at'],
+        'em_preparo_at' => $p['em_preparo_at'] ?? null,
+        'pronto_at' => $p['pronto_at'] ?? null,
     ];
 }
 

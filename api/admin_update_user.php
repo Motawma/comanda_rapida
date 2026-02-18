@@ -23,7 +23,7 @@ if ($id <= 0) {
     echo json_encode(['success' => false, 'message' => 'id inválido']);
     exit;
 }
-if (!in_array($role, ['admin','staff'], true)) {
+if (!in_array($role, ['admin','garcom','cozinha'], true)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'role inválida']);
     exit;

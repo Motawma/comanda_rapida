@@ -41,6 +41,9 @@ try {
 
   $pdo->commit();
 
+  // Sincronizar status do pedido com base nos itens restantes
+  try { sincronizarStatusPedidoComItens($pedidoId); } catch (Throwable $e) {}
+
   // devolve tudo atualizado
   $pedidoIdLocal = $pedidoId;
   require __DIR__ . '/pedido_detalhes.php';

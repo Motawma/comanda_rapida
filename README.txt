@@ -21,9 +21,9 @@ COMANDA_RAPIDA (MVP) - Instruções rápidas
        - OU tipo = windows + share_name (impressora compartilhada)
 
 6) Acesso:
-   - No PC: http://localhost/comanda_rapida/index.php
+   - No PC: http://localhost/comanda_rapida/comanda.php
    - No celular (mesmo Wi-Fi): descubra o IPv4 do PC (ipconfig) e abra:
-       http://SEU_IP/comanda_rapida/index.php
+       http://SEU_IP/comanda_rapida/comanda.php
 
 7) Reimpressão:
    - POST JSON em /comanda_rapida/api/reimprimir.php

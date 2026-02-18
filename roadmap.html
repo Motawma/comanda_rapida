@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roadmap — Comanda Rápida</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #0d0d0d;
+    --surface: #151515;
+    --surface2: #1c1c1c;
+    --border: #2a2a2a;
+    --text: #e8e8e8;
+    --muted: #666;
+    --phase1: #ff6b35;
+    --phase2: #f7c59f;
+    --phase3: #00d4aa;
+    --phase4: #7c6fcd;
+    --done: #3a3a3a;
+    --done-text: #555;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+
+  .header {
+    max-width: 860px;
+    margin: 0 auto 3rem;
+  }
+
+  .header .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .75rem;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: .5rem;
+  }
+
+  .header h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 1rem;
+  }
+
+  .header h1 span {
+    color: var(--phase1);
+  }
+
+  .header p {
+    color: var(--muted);
+    font-size: 1rem;
+    max-width: 520px;
+    line-height: 1.6;
+  }
+
+  /* Progress bar global */
+  .global-progress {
+    max-width: 860px;
+    margin: 0 auto 3rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .global-progress .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .8rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--phase1), var(--phase3));
+    transition: width .6s ease;
+  }
+
+  .progress-pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  /* Fases */
+  .phases {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  .phase-header {
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+  }
+
+  .phase-header:hover {
+    background: var(--surface2);
+  }
+
+  .phase-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .phase-title {
+    flex: 1;
+  }
+
+  .phase-title .numero {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .7rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: .2rem;
+  }
+
+  .phase-title h2 {
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  .phase-meta {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    flex-shrink: 0;
+  }
+
+  .phase-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .7rem;
+    padding: .2rem .6rem;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+
+  .badge-urgente  { background: rgba(255,107,53,.15); color: var(--phase1); }
+  .badge-critico  { background: rgba(247,197,159,.15); color: var(--phase2); }
+  .badge-crescimento { background: rgba(0,212,170,.15); color: var(--phase3); }
+  .badge-escala   { background: rgba(124,111,205,.15); color: var(--phase4); }
+
+  .phase-toggle {
+    color: var(--muted);
+    font-size: .8rem;
+    transition: transform .2s;
+  }
+
+  .phase.open .phase-toggle {
+    transform: rotate(180deg);
+  }
+
+  /* Items */
+  .phase-items {
+    display: none;
+    padding: .5rem;
+  }
+
+  .phase.open .phase-items {
+    display: block;
+  }
+
+  .item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: .9rem 1rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .15s;
+    border: 1px solid transparent;
+  }
+
+  .item:hover {
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+
+  .item.done {
+    opacity: .5;
+  }
+
+  .item-check {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .75rem;
+    transition: all .2s;
+  }
+
+  .item.done .item-check {
+    background: var(--done);
+    border-color: var(--done);
+    color: #888;
+  }
+
+  .item-content {
+    flex: 1;
+  }
+
+  .item-title {
+    font-size: .95rem;
+    font-weight: 600;
+    margin-bottom: .2rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+
+  .item.done .item-title {
+    text-decoration: line-through;
+    color: var(--done-text);
+  }
+
+  .item-desc {
+    font-size: .8rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .6rem;
+    padding: .15rem .4rem;
+    border-radius: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .tag-php    { background: rgba(119,123,180,.2); color: #7b7fc4; }
+  .tag-js     { background: rgba(247,223,30,.15); color: #c9a800; }
+  .tag-sql    { background: rgba(0,150,255,.15);  color: #3b9eff; }
+  .tag-ux     { background: rgba(0,212,170,.15);  color: var(--phase3); }
+  .tag-infra  { background: rgba(255,107,53,.15); color: var(--phase1); }
+  .tag-negocio{ background: rgba(124,111,205,.2); color: var(--phase4); }
+
+  .item-effort {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .65rem;
+    color: var(--muted);
+    margin-top: .3rem;
+  }
+
+  /* Divisor entre fases */
+  .phase-divider {
+    text-align: center;
+    color: var(--border);
+    font-size: 1.2rem;
+    padding: .25rem 0;
+  }
+
+  /* Footer */
+  .footer-note {
+    max-width: 860px;
+    margin: 2.5rem auto 0;
+    padding: 1.25rem 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: .85rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .footer-note strong {
+    color: var(--text);
+  }
+
+  @media (max-width: 576px) {
+    .phase-meta .phase-badge { display: none; }
+    .item { padding: .75rem .5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="eyebrow">// roadmap</div>
+  <h1>Comanda Rápida<br><span>Pronto para vender</span></h1>
+  <p>Prioridades organizadas por impacto comercial. Clique nos itens para marcar como concluído.</p>
+</div>
+
+<div class="global-progress">
+  <span class="label">Progresso geral</span>
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+  </div>
+  <span class="progress-pct" id="progressPct">0%</span>
+</div>
+
+<div class="phases" id="phases">
+
+  <!-- FASE 1 -->
+  <div class="phase open" data-phase="1">
+    <div class="phase-header" onclick="togglePhase(this)">
+      <div class="phase-dot" style="background:#ff6b35"></div>
+      <div class="phase-title">
+        <div class="numero">Fase 01 — 2 a 4 semanas</div>
+        <h2>🔥 Obrigatório antes de cobrar</h2>
+      </div>
+      <div class="phase-meta">
+        <span class="phase-badge badge-urgente">URGENTE</span>
+        <span class="phase-toggle">▼</span>
+      </div>
+    </div>
+    <div class="phase-items">
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Relatórios básicos para o dono <span class="tag tag-php">PHP</span><span class="tag tag-sql">SQL</span></div>
+          <div class="item-desc">Faturamento por dia/semana/mês, produtos mais vendidos, ticket médio por mesa. É a primeira coisa que qualquer dono vai perguntar.</div>
+          <div class="item-effort">⏱ 3-5 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Página de erro amigável <span class="tag tag-php">PHP</span><span class="tag tag-ux">UX</span></div>
+          <div class="item-desc">Hoje se algo falhar aparece erro PHP cru na tela. Criar um handler global que mostre uma mensagem bonita e registre o erro em log.</div>
+          <div class="item-effort">⏱ 1 dia</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Recuperação de senha <span class="tag tag-php">PHP</span></div>
+          <div class="item-desc">Fluxo de "esqueci minha senha" por e-mail. Sem isso o dono fica preso se esquecer a senha e precisa chamar você.</div>
+          <div class="item-effort">⏱ 1-2 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Backup automático do banco <span class="tag tag-infra">INFRA</span><span class="tag tag-php">PHP</span></div>
+          <div class="item-desc">Script que gera dump do MySQL diariamente e salva em pasta local ou envia por e-mail. Sem isso, se o HD falhar, perde tudo.</div>
+          <div class="item-effort">⏱ 1 dia</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Testes em ambiente real (beta) <span class="tag tag-negocio">NEGÓCIO</span></div>
+          <div class="item-desc">Usar o sistema num restaurante real por 30 dias antes de cobrar. Bugs aparecem quando garçons reais usam sob pressão de movimento.</div>
+          <div class="item-effort">⏱ 30 dias contínuos</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase-divider">┊</div>
+
+  <!-- FASE 2 -->
+  <div class="phase" data-phase="2">
+    <div class="phase-header" onclick="togglePhase(this)">
+      <div class="phase-dot" style="background:#f7c59f"></div>
+      <div class="phase-title">
+        <div class="numero">Fase 02 — 1 a 2 meses</div>
+        <h2>💼 Produto comercializável</h2>
+      </div>
+      <div class="phase-meta">
+        <span class="phase-badge badge-critico">CRÍTICO</span>
+        <span class="phase-toggle">▼</span>
+      </div>
+    </div>
+    <div class="phase-items">
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Instalador automático <span class="tag tag-php">PHP</span><span class="tag tag-sql">SQL</span></div>
+          <div class="item-desc">Wizard de configuração inicial: nome do restaurante, banco de dados, usuário admin. O cliente não pode precisar editar config.php na mão.</div>
+          <div class="item-effort">⏱ 3-4 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Configurações do restaurante <span class="tag tag-php">PHP</span><span class="tag tag-ux">UX</span></div>
+          <div class="item-desc">Painel para o dono configurar: nome, logo, horário de funcionamento, dados para o cupom fiscal, nome nas impressões.</div>
+          <div class="item-effort">⏱ 2-3 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Controle de mesas / layout <span class="tag tag-ux">UX</span><span class="tag tag-php">PHP</span></div>
+          <div class="item-desc">Mapa visual das mesas do restaurante. Hoje é só número/nome — o dono quer ver quais mesas estão ocupadas de forma visual.</div>
+          <div class="item-effort">⏱ 4-5 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Documentação básica (PDF) <span class="tag tag-negocio">NEGÓCIO</span></div>
+          <div class="item-desc">Manual de uso de 5-10 páginas: como abrir o caixa, fazer pedido, fechar comanda, gerenciar produtos. Reduz chamadas de suporte.</div>
+          <div class="item-effort">⏱ 2 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Modelo de contrato + precificação <span class="tag tag-negocio">NEGÓCIO</span></div>
+          <div class="item-desc">Definir: taxa de instalação (R$ X) + mensalidade de suporte (R$ Y). Contrato simples de prestação de serviço. Sem isso você trabalha de graça.</div>
+          <div class="item-effort">⏱ 1-2 dias</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase-divider">┊</div>
+
+  <!-- FASE 3 -->
+  <div class="phase" data-phase="3">
+    <div class="phase-header" onclick="togglePhase(this)">
+      <div class="phase-dot" style="background:#00d4aa"></div>
+      <div class="phase-title">
+        <div class="numero">Fase 03 — 2 a 3 meses</div>
+        <h2>📈 Crescimento e diferencial</h2>
+      </div>
+      <div class="phase-meta">
+        <span class="phase-badge badge-crescimento">CRESCIMENTO</span>
+        <span class="phase-toggle">▼</span>
+      </div>
+    </div>
+    <div class="phase-items">
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Dashboard analytics avançado <span class="tag tag-js">JS</span><span class="tag tag-sql">SQL</span></div>
+          <div class="item-desc">Gráficos de faturamento, horas de pico, comparativo semana a semana. Donos de restaurante adoram ver dados visuais do negócio.</div>
+          <div class="item-effort">⏱ 5-7 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">App mobile PWA para garçom <span class="tag tag-js">JS</span><span class="tag tag-ux">UX</span></div>
+          <div class="item-desc">Transformar a comanda.php em PWA instalável no celular. Garçom "instala" no Android/iOS sem precisar de app store. Grande diferencial.</div>
+          <div class="item-effort">⏱ 3-4 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Integração com PIX automático <span class="tag tag-php">PHP</span><span class="tag tag-negocio">NEGÓCIO</span></div>
+          <div class="item-desc">Gerar QR code PIX no fechamento da comanda. Cliente escaneia e paga na hora. Reduz filas no caixa e é um grande diferencial comercial.</div>
+          <div class="item-effort">⏱ 4-6 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">WhatsApp — envio de cupom <span class="tag tag-php">PHP</span></div>
+          <div class="item-desc">Enviar resumo da comanda por WhatsApp para o cliente ao fechar. Diferencial forte e baixo custo com Evolution API ou Z-API.</div>
+          <div class="item-effort">⏱ 2-3 dias</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase-divider">┊</div>
+
+  <!-- FASE 4 -->
+  <div class="phase" data-phase="4">
+    <div class="phase-header" onclick="togglePhase(this)">
+      <div class="phase-dot" style="background:#7c6fcd"></div>
+      <div class="phase-title">
+        <div class="numero">Fase 04 — 4+ meses</div>
+        <h2>🚀 Escala e SaaS</h2>
+      </div>
+      <div class="phase-meta">
+        <span class="phase-badge badge-escala">ESCALA</span>
+        <span class="phase-toggle">▼</span>
+      </div>
+    </div>
+    <div class="phase-items">
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Multi-tenant (múltiplos restaurantes) <span class="tag tag-php">PHP</span><span class="tag tag-sql">SQL</span><span class="tag tag-infra">INFRA</span></div>
+          <div class="item-desc">Separar dados por cliente com schema ou banco isolado. Pré-requisito para virar SaaS com múltiplos clientes no mesmo servidor.</div>
+          <div class="item-effort">⏱ 2-3 semanas</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Painel de administração SaaS <span class="tag tag-php">PHP</span><span class="tag tag-negocio">NEGÓCIO</span></div>
+          <div class="item-desc">Área para você gerenciar todos os clientes: ativar/desativar conta, ver uso, cobranças. Necessário quando tiver 5+ clientes.</div>
+          <div class="item-effort">⏱ 1-2 semanas</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Cobrança automática (Stripe / Asaas) <span class="tag tag-php">PHP</span><span class="tag tag-negocio">NEGÓCIO</span></div>
+          <div class="item-desc">Mensalidade cobrada automaticamente no cartão ou PIX. Sem isso você persegue boleto todo mês. Asaas é ótimo para o Brasil.</div>
+          <div class="item-effort">⏱ 3-5 dias</div>
+        </div>
+      </div>
+      <div class="item" onclick="toggleItem(this)">
+        <div class="item-check"></div>
+        <div class="item-content">
+          <div class="item-title">Cardápio digital QR Code <span class="tag tag-php">PHP</span><span class="tag tag-ux">UX</span></div>
+          <div class="item-desc">Cliente escaneia QR da mesa e vê o cardápio (ou até faz o pedido). Pedido vai direto para o sistema. Tendência forte pós-pandemia.</div>
+          <div class="item-effort">⏱ 1 semana</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer-note">
+  💡 <strong>Estratégia recomendada:</strong> Não espere tudo pronto para cobrar. Com a <strong>Fase 1 concluída</strong> e 30 dias de teste real, já dá para cobrar uma <strong>taxa de instalação + suporte mensal</strong>. Isso gera caixa para desenvolver as próximas fases com tranquilidade.
+</div>
+
+<script>
+  const STORAGE_KEY = 'roadmap_items';
+
+  function getSaved() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+  }
+
+  function save(data) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  function getItemKey(el) {
+    const title = el.querySelector('.item-title')?.textContent?.trim()?.slice(0, 40);
+    return title || Math.random().toString(36);
+  }
+
+  function toggleItem(el) {
+    const isDone = el.classList.toggle('done');
+    const key = getItemKey(el);
+    const saved = getSaved();
+    if (isDone) {
+      saved[key] = true;
+      el.querySelector('.item-check').textContent = '✓';
+    } else {
+      delete saved[key];
+      el.querySelector('.item-check').textContent = '';
+    }
+    save(saved);
+    updateProgress();
+  }
+
+  function togglePhase(headerEl) {
+    headerEl.closest('.phase').classList.toggle('open');
+  }
+
+  function updateProgress() {
+    const all = document.querySelectorAll('.item');
+    const done = document.querySelectorAll('.item.done');
+    const pct = all.length ? Math.round((done.length / all.length) * 100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressPct').textContent = pct + '%';
+  }
+
+  // Restaurar estado salvo
+  function restoreState() {
+    const saved = getSaved();
+    document.querySelectorAll('.item').forEach(el => {
+      const key = getItemKey(el);
+      if (saved[key]) {
+        el.classList.add('done');
+        el.querySelector('.item-check').textContent = '✓';
+      }
+    });
+    updateProgress();
+  }
+
+  restoreState();
+</script>
+</body>
+</html>

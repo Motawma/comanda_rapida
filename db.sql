@@ -14,14 +14,15 @@ CREATE TABLE IF NOT EXISTS produtos (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- Tabela pedidos (atualizada para suportar FIADO, fiado_at e associar sessão de caixa)
+-- Tabela pedidos (atualizada para suportar FIADO, ENTREGUE, fiado_at e associar sessão de caixa)
 CREATE TABLE IF NOT EXISTS pedidos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   mesa VARCHAR(50) NOT NULL,
-  status ENUM('PENDENTE','EM_PREPARO','PRONTO','FIADO','PAGO','CANCELADO') NOT NULL DEFAULT 'PENDENTE',
+  status ENUM('PENDENTE','EM_PREPARO','PRONTO','ENTREGUE','FIADO','PAGO','CANCELADO') NOT NULL DEFAULT 'PENDENTE',
   total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   impresso TINYINT(1) NOT NULL DEFAULT 0,
   fiado_at DATETIME NULL,
+  entregue_at DATETIME NULL,
   caixa_sessao_id INT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
@@ -40,7 +41,7 @@ CREATE TABLE IF NOT EXISTS caixa_sessoes (
   user_id INT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabela itens_pedido
+-- Tabela itens_pedido (com item_status individual para controle por item na cozinha)
 CREATE TABLE IF NOT EXISTS itens_pedido (
   id INT AUTO_INCREMENT PRIMARY KEY,
   pedido_id INT NOT NULL,
@@ -48,8 +49,11 @@ CREATE TABLE IF NOT EXISTS itens_pedido (
   quantidade INT NOT NULL DEFAULT 1,
   preco_unit DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   subtotal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  item_status ENUM('PENDENTE','EM_PREPARO','PRONTO','ENTREGUE') NOT NULL DEFAULT 'PENDENTE',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_itens_pedido_pedido FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE,
-  CONSTRAINT fk_itens_pedido_produto FOREIGN KEY (produto_id) REFERENCES produtos(id)
+  CONSTRAINT fk_itens_pedido_produto FOREIGN KEY (produto_id) REFERENCES produtos(id),
+  INDEX idx_itens_item_status (item_status)
 ) ENGINE=InnoDB;
 
 -- Inserts de exemplo

@@ -63,6 +63,28 @@ function requireAdminPage(): void {
     }
 }
 
+// Exige login (qualquer role: admin ou staff). Usado em comanda e cozinha.
+function requireLogin(): void {
+    if (!isLoggedIn()) {
+        header('Location: ./index.php');
+        exit;
+    }
+}
+
+// Exige login como admin. Usado no caixa.
+function requireAdminOrRedirect(): void {
+    if (!isLoggedIn()) {
+        header('Location: ./index.php');
+        exit;
+    }
+    $user = currentUser();
+    if (($user['role'] ?? '') !== 'admin') {
+        http_response_code(403);
+        echo '<!doctype html><html><head><meta charset="utf-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"></head><body class="bg-light d-flex align-items-center justify-content-center" style="min-height:100vh"><div class="text-center"><h3>🔒 Acesso restrito</h3><p class="text-muted">Apenas administradores podem acessar o caixa.</p><a href="index.php" class="btn btn-outline-secondary mt-2">Voltar</a></div></body></html>';
+        exit;
+    }
+}
+
 function requireAdminApi(): void {
     header('Content-Type: application/json; charset=utf-8');
     if (!isLoggedIn()) {
