@@ -1,6 +1,7 @@
 <?php
 // comanda.php - Tela do Garçom
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/licenca.php';
 requireLogin();
 require_once __DIR__ . '/funcoes.php';
 $produtos = getProdutoList();

@@ -1,5 +1,6 @@
 <?php
 require_once 'auth.php';
+require_once 'licenca.php';
 require_once 'conexao.php';
 requireAdminPage();
 

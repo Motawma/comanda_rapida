@@ -1,6 +1,7 @@
 <?php
 // admin.php - área administrativa
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/licenca.php';
 requireAdminPage(); // exige login admin
 require_once __DIR__ . '/funcoes.php';
 require_once __DIR__ . '/printer_config.php';

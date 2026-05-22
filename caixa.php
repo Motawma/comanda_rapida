@@ -1,6 +1,7 @@
 <?php
 // caixa.php - Painel do Caixa (MVP)
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/licenca.php';
 requireCaixaOrAdmin();
 ?>
 <!doctype html>

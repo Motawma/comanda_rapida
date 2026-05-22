@@ -22,6 +22,7 @@
  * API utilizada: api/kds_pedidos.php
  */
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/licenca.php';
 requireLogin();
 ?>
 <!doctype html>
