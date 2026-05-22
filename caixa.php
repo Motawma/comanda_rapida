@@ -11,8 +11,8 @@ requireCaixaOrAdmin();
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Caixa - Comanda Rápida</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="theme.css">
-  <script src="theme.js"></script>
+  <link rel="stylesheet" href="theme.css?v=<?= filemtime(__DIR__.'/theme.css') ?>">
+  <script src="theme.js?v=<?= filemtime(__DIR__.'/theme.js') ?>"></script>
   <!-- depois vem o Bootstrap normalmente -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.x/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>

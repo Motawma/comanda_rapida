@@ -26,7 +26,7 @@ try {
   <title>Financeiro — V12 Comandas</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="theme.css?v=<?= filemtime(__DIR__.'/theme.css') ?>">
   <style>
     body { background: #0f0f0f; color: #e0e0e0; min-height: 100vh; }
     .topbar {
@@ -306,7 +306,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="theme.js"></script>
+<script src="theme.js?v=<?= filemtime(__DIR__.'/theme.js') ?>"></script>
 <script>
 // ── Helpers ─────────────────────────────────────────────────────────
 const R$ = v => 'R$ ' + parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});

@@ -32,8 +32,8 @@ $ifoodCfg = $cfgStmt->fetch();
   <link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="shortcut icon" href="favicon.svg">
   <title>iFood — V12</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="theme.css">
-  <script src="theme.js"></script>
+  <link rel="stylesheet" href="theme.css?v=<?= filemtime(__DIR__.'/theme.css') ?>">
+  <script src="theme.js?v=<?= filemtime(__DIR__.'/theme.js') ?>"></script>
   <style>
     body { background: var(--bs-body-bg, #111); color: var(--bs-body-color, #eee); min-height: 100vh; }
     .topbar { background: #ea1d2c; padding: .6rem 1rem; display: flex; align-items: center; gap: 1rem; }
