@@ -2,7 +2,20 @@
 // api/criar_pedido.php
 header('Content-Type: application/json; charset=utf-8');
 
+// Captura fatal errors e retorna JSON válido em vez de resposta vazia
+register_shutdown_function(function() {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Erro interno: ' . $err['message'] . ' em ' . basename($err['file']) . ':' . $err['line']
+        ]);
+    }
+});
+
 require_once __DIR__ . '/../funcoes.php';
+require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../printer_config.php';
 
 $input = json_decode(file_get_contents('php://input'), true);

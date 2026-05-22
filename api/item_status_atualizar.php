@@ -45,14 +45,21 @@ $transitions = [
 
 // Transições extras para bebidas (podem pular etapas — "entregar antes")
 $transitionsBebida = [
-    'PENDENTE'    => ['EM_PREPARO', 'PRONTO', 'ENTREGUE'],
-    'EM_PREPARO'  => ['PRONTO', 'PENDENTE', 'ENTREGUE'],
-    'PRONTO'      => ['ENTREGUE', 'EM_PREPARO'],
-    'ENTREGUE'    => ['PRONTO'],
+    'PENDENTE'   => ['EM_PREPARO', 'PRONTO', 'ENTREGUE'],
+    'EM_PREPARO' => ['PRONTO', 'PENDENTE', 'ENTREGUE'],
+    'PRONTO'     => ['ENTREGUE', 'EM_PREPARO'],
+    'ENTREGUE'   => ['PRONTO'],
 ];
 
-// Categorias consideradas "bebida" (para permitir entregar antes)
-$categoriasBebida = ['BEBIDA', 'BEBIDAS', 'DRINK', 'DRINKS', 'SUCO', 'SUCOS', 'CERVEJA', 'CERVEJAS', 'REFRIGERANTE', 'REFRIGERANTES'];
+// Palavras-chave para detectar bebida — checadas na categoria E no nome do produto
+$bebidaKeywords = [
+    'BEBIDA','DRINK','SUCO','CERVEJA','REFRIGERANTE','AGUA','ÁGUA',
+    'CAIPIRINHA','CAIPIROSKA','VINHO','CHOPP','CHOPE','LONG NECK','LONGNECK',
+    'COCA','GUARANA','GUARANÁ','SPRITE','FANTA','MONSTER','RED BULL','REDBULL',
+    'H2O','LIMONADA','VITAMINA','SHAKE','GIN','VODKA','WHISKY','WHISKEY',
+    'HEINEKEN','BRAHMA','SKOL','ANTARCTICA','ITAIPAVA','EISENBAHN','ORIGINAL',
+    'ENERGETICO','ENERGÉTICO','TONICA','TÔNICA','SODA',
+];
 
 try {
     $pdo = getPDO();
@@ -86,11 +93,19 @@ try {
             continue;
         }
 
-        // Detectar se é bebida para permitir pular etapas
-        $catUpper = mb_strtoupper(trim($item['categoria'] ?? ''), 'UTF-8');
-        $isBebida = false;
-        foreach ($categoriasBebida as $cb) {
-            if (str_contains($catUpper, $cb)) {
+        // Detectar se é bebida verificando categoria E nome do produto
+        $normStr = function($s) {
+            $s = mb_strtoupper(trim((string)$s), 'UTF-8');
+            // Remove acentos sem depender de Normalizer
+            $from = ['Á','À','Ã','Â','É','Ê','Í','Ó','Õ','Ô','Ú','Ü','Ç','á','à','ã','â','é','ê','í','ó','õ','ô','ú','ü','ç'];
+            $to   = ['A','A','A','A','E','E','I','O','O','O','U','U','C','A','A','A','A','E','E','I','O','O','O','U','U','C'];
+            return str_replace($from, $to, $s);
+        };
+        $catUpper  = $normStr($item['categoria'] ?? '');
+        $nomeUpper = $normStr($item['nome'] ?? '');
+        $isBebida  = false;
+        foreach ($bebidaKeywords as $kw) {
+            if (str_contains($catUpper, $kw) || str_contains($nomeUpper, $kw)) {
                 $isBebida = true;
                 break;
             }

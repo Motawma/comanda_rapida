@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../funcoes.php';
+require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/_mod_produtos_estoque_lib.php';
 
 $db = cr_get_db();
@@ -9,6 +10,8 @@ if ($db['driver'] !== 'pdo') {
 $pdo = $db['conn'];
 
 cr_must_have_tables($db);
+
+$empresaId = currentEmpresaId();
 
 $id = cr_clean_int(cr_param('id', 0));
 $nome = trim((string)cr_param('nome', ''));
@@ -28,18 +31,19 @@ if ($estoque_minimo !== null && $estoque_minimo < 0) cr_json(['ok'=>false,'succe
 try {
     $pdo->beginTransaction();
 
-    // resolve category name if categoria_id provided
+    // Resolve category name — filtra por empresa_id
     $categoria_text = '';
     if ($categoria_id !== null) {
-        $stc = $pdo->prepare('SELECT nome FROM categorias_produtos WHERE id = ? LIMIT 1');
-        $stc->execute([$categoria_id]);
+        $stc = $pdo->prepare('SELECT nome FROM categorias_produtos WHERE id = ? AND empresa_id = ? LIMIT 1');
+        $stc->execute([$categoria_id, $empresaId]);
         $cr = $stc->fetch(PDO::FETCH_ASSOC);
         $categoria_text = $cr ? ($cr['nome'] ?? '') : '';
     }
     if ($categoria_nome !== '') $categoria_text = $categoria_nome;
 
     if ($id > 0) {
-        $sql = "UPDATE produtos SET nome = ?, preco = ?, categoria = ?, controla_estoque = ?, estoque_minimo = ?, ativo = ? WHERE id = ?";
+        // UPDATE — garante que só edita produto da própria empresa
+        $sql = "UPDATE produtos SET nome = ?, preco = ?, categoria = ?, controla_estoque = ?, estoque_minimo = ?, ativo = ? WHERE id = ? AND empresa_id = ?";
         $st = $pdo->prepare($sql);
         $st->execute([
             $nome,
@@ -48,10 +52,12 @@ try {
             $controla_estoque,
             $estoque_minimo,
             $ativo,
-            $id
+            $id,
+            $empresaId
         ]);
     } else {
-        $sql = "INSERT INTO produtos (nome, preco, categoria, controla_estoque, estoque_minimo, ativo) VALUES (?,?,?,?,?,?)";
+        // INSERT — salva com empresa_id do usuário logado
+        $sql = "INSERT INTO produtos (nome, preco, categoria, controla_estoque, estoque_minimo, ativo, empresa_id) VALUES (?,?,?,?,?,?,?)";
         $st = $pdo->prepare($sql);
         $st->execute([
             $nome,
@@ -59,14 +65,15 @@ try {
             ($categoria_text === '' ? null : $categoria_text),
             $controla_estoque,
             $estoque_minimo,
-            $ativo
+            $ativo,
+            $empresaId
         ]);
         $id = (int)$pdo->lastInsertId();
     }
 
-    // garante saldo
-    $st2 = $pdo->prepare("INSERT IGNORE INTO estoque_saldo (produto_id, quantidade_atual) VALUES (?, 0)");
-    $st2->execute([$id]);
+    // Garante saldo no estoque
+    $st2 = $pdo->prepare("INSERT IGNORE INTO estoque_saldo (produto_id, quantidade_atual, empresa_id) VALUES (?, 0, ?)");
+    $st2->execute([$id, $empresaId]);
 
     $pdo->commit();
     cr_json(['ok'=>true,'success'=>true,'id'=>$id]);

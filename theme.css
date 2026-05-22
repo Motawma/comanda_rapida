@@ -44,6 +44,10 @@
 
   --badge-pendente-bg:   #4a4a5a;
   --badge-pendente-text: #fff;
+
+  /* Sobrescreve variáveis internas do Bootstrap */
+  --bs-body-bg:    #121212;
+  --bs-body-color: #e0e0e0;
 }
 
 /* ══════════════════════════════════════════════
@@ -253,11 +257,9 @@ hr {
     color .2s ease;
 }
 
-/* Exceção: não aplica transição em elementos que ficam lentos */
+/* Exceção: não aplica transição em elementos com animações próprias */
 .kds-card,
-.kds-card *,
-button,
-a {
+.kds-card * {
   transition: none;
 }
 
@@ -405,8 +407,7 @@ a {
 }
 
 /* ══════════════════════════════════════════════
-   Correção v3 — Navbar emojis/ícones sumindo
-   no modo claro
+   Navbar — sempre escura independente do tema
    ══════════════════════════════════════════════ */
 
 /* A navbar SEMPRE é escura — não deixar o tema claro
@@ -448,3 +449,97 @@ nav.navbar *:not(.btn-theme-toggle):not(.theme-label) {
 [data-theme="light"] .navbar .nav-link:hover {
   color: #fff !important;
 }
+
+/* ══════════════════════════════════════════════
+   Comanda mobile — modo escuro
+   ══════════════════════════════════════════════ */
+
+/* Garante que body.bg-light não bloqueie o tema escuro */
+[data-theme="dark"] body.bg-light,
+[data-theme="dark"] body.bg-light .container,
+[data-theme="dark"] body.bg-light .container-fluid {
+  background-color: #121212 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Header fixo mobile */
+[data-theme="dark"] body.bg-light #comandaHeaderFixo,
+[data-theme="dark"] #comandaHeaderFixo {
+  background: #121212 !important;
+  border-bottom-color: #2e2e42 !important;
+}
+
+/* Cards dentro da comanda */
+[data-theme="dark"] body.bg-light .card,
+[data-theme="dark"] body.bg-light .card-body {
+  background-color: #1e1e2e !important;
+  border-color: #2e2e42 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Coluna direita / resumo */
+[data-theme="dark"] #colDireita,
+[data-theme="dark"] #resumo {
+  background-color: #1e1e2e !important;
+  border-color: #2e2e42 !important;
+}
+
+/* Inputs dentro da comanda */
+[data-theme="dark"] body.bg-light .form-control,
+[data-theme="dark"] body.bg-light .form-select {
+  background-color: #2a2a3e !important;
+  color: #e0e0e0 !important;
+  border-color: #3a3a52 !important;
+}
+
+/* List group de sugestões de busca */
+[data-theme="dark"] body.bg-light .list-group-item {
+  background-color: #1e1e2e !important;
+  color: #e0e0e0 !important;
+  border-color: #2e2e42 !important;
+}
+
+/* Linhas do resumo do pedido */
+[data-theme="dark"] .resumo-linha {
+  border-bottom-color: #2e2e42 !important;
+}
+
+/* Área de produtos / top grid */
+[data-theme="dark"] .produto-card,
+[data-theme="dark"] [class*="produto"] {
+  background-color: #1e1e2e !important;
+  color: #e0e0e0 !important;
+  border-color: #2e2e42 !important;
+}
+
+/* Seção resumo do pedido */
+[data-theme="dark"] [class*="resumo"] {
+  background-color: #1e1e2e !important;
+  color: #e0e0e0 !important;
+  border-color: #2e2e42 !important;
+}
+
+/* Modal cupom */
+[data-theme="dark"] #modalCupom .modal-body {
+  background: #1e1e2e !important;
+  color: #e0e0e0 !important;
+}
+
+[data-theme="dark"] #modalCupom .modal-body .cupom .cat {
+  background: #2a2a3e !important;
+  color: #a0a0b0 !important;
+}
+
+/* ══════════════════════════════════════════════
+   Badges de status — versão escura
+   ══════════════════════════════════════════════ */
+
+[data-theme="dark"] .is-PENDENTE   { background: #2a2a3e !important; color: #a0a0b0 !important; }
+[data-theme="dark"] .is-EM_PREPARO { background: #3a2e00 !important; color: #fbbf24 !important; }
+[data-theme="dark"] .is-PRONTO     { background: #0a2e1a !important; color: #6ee7b7 !important; }
+[data-theme="dark"] .is-ENTREGUE   { background: #0a2535 !important; color: #7dd3fc !important; }
+
+[data-theme="dark"] .pc-PENDENTE   { background: #2a2a3e !important; color: #a0a0b0 !important; }
+[data-theme="dark"] .pc-EM_PREPARO { background: #3a2e00 !important; color: #fbbf24 !important; }
+[data-theme="dark"] .pc-PRONTO     { background: #0a2e1a !important; color: #6ee7b7 !important; }
+[data-theme="dark"] .pc-ENTREGUE   { background: #0a2535 !important; color: #7dd3fc !important; }

@@ -6,9 +6,18 @@ require_once __DIR__ . '/../conexao.php';
 
 requireAdminApi();
 
+$empresaId = currentEmpresaId();
+
 try {
-    $pdo = getPDO();
-    $stmt = $pdo->query("SELECT id, username, role, active, created_at FROM users ORDER BY created_at DESC");
+    $pdo  = getPDO();
+    // Lista apenas usuários da própria empresa (exceto master)
+    $stmt = $pdo->prepare("
+        SELECT id, username, role, active, created_at
+        FROM users
+        WHERE empresa_id = ? AND role != 'master'
+        ORDER BY created_at DESC
+    ");
+    $stmt->execute([$empresaId]);
     $rows = $stmt->fetchAll();
     echo json_encode(['success' => true, 'users' => $rows]);
     exit;

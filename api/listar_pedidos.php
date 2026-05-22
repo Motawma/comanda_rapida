@@ -1,6 +1,9 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../funcoes.php';
+require_once __DIR__ . '/../auth.php';
+
+$empresaId = currentEmpresaId();
 
 // If sessao_id provided, list pedidos for that session
 $sessaoId = isset($_GET['sessao_id']) ? (int)$_GET['sessao_id'] : 0;
@@ -78,6 +81,19 @@ if ($sessaoId > 0) {
     $tr = $totStmt->fetch();
     $total_vendido = (float)($tr['total'] ?? 0.0);
 
+    // Breakdown por forma de pagamento
+    $formaStmt = $pdo->prepare("SELECT COALESCE(forma_pagamento,'') AS forma, COALESCE(SUM(total),0) AS total FROM pedidos WHERE caixa_sessao_id = ? AND status = 'PAGO' AND empresa_id = ? GROUP BY forma_pagamento");
+    $formaStmt->execute([$sessaoId, $empresaId]);
+    $formaRows = $formaStmt->fetchAll();
+    $por_forma = ['DINHEIRO' => 0.0, 'PIX' => 0.0, 'CREDITO' => 0.0, 'DEBITO' => 0.0];
+    foreach ($formaRows as $fr) {
+        $k = strtoupper(trim($fr['forma']));
+        if (isset($por_forma[$k])) $por_forma[$k] = (float)$fr['total'];
+    }
+
+    // Debug: valor bruto retornado pelo banco para diagnóstico
+    $debugForma = array_map(fn($r) => ['forma_raw' => $r['forma'], 'total' => $r['total']], $formaRows);
+
     echo json_encode([
         'success' => true,
         'sessao_id' => $sessaoId,
@@ -85,6 +101,8 @@ if ($sessaoId > 0) {
         'pedidos' => $lista,
         'contadores' => $statuses,
         'total_vendido' => $total_vendido,
+        'por_forma' => $por_forma,
+        'debug_forma' => $debugForma,
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }

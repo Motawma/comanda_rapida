@@ -1,10 +1,12 @@
 <?php
 require_once __DIR__ . '/../funcoes.php';
+require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/_mod_produtos_estoque_lib.php';
 
 $db = cr_get_db();
 if ($db['driver'] !== 'pdo') cr_json(['ok'=>false,'success'=>false,'message'=>'Driver inválido, PDO requerido'], 500);
 $pdo = $db['conn'];
+$empresaId = currentEmpresaId();
 
 $name = trim((string)cr_param('nome', ''));
 $id = cr_clean_int(cr_param('id', 0));
@@ -14,9 +16,9 @@ if ($name === '') cr_json(['ok'=>false,'success'=>false,'message'=>'Nome é obri
 try {
     $pdo->beginTransaction();
 
-    // verificar duplicidade (case-insensitive)
-    $st = $pdo->prepare('SELECT id FROM categorias_produtos WHERE LOWER(nome) = LOWER(?) LIMIT 1');
-    $st->execute([$name]);
+    // verificar duplicidade na empresa (case-insensitive)
+    $st = $pdo->prepare('SELECT id FROM categorias_produtos WHERE LOWER(nome) = LOWER(?) AND (empresa_id = ? OR empresa_id IS NULL) LIMIT 1');
+    $st->execute([$name, $empresaId]);
     $exists = $st->fetch(PDO::FETCH_ASSOC);
     if ($exists && $id === 0) {
         throw new InvalidArgumentException('Nome de categoria já existe');
@@ -26,11 +28,11 @@ try {
     }
 
     if ($id > 0) {
-        $up = $pdo->prepare('UPDATE categorias_produtos SET nome = ?, updated_at = NOW() WHERE id = ?');
-        $up->execute([$name, $id]);
+        $up = $pdo->prepare('UPDATE categorias_produtos SET nome = ?, empresa_id = ? WHERE id = ?');
+        $up->execute([$name, $empresaId, $id]);
     } else {
-        $ins = $pdo->prepare('INSERT INTO categorias_produtos (nome, ativo) VALUES (?, 1)');
-        $ins->execute([$name]);
+        $ins = $pdo->prepare('INSERT INTO categorias_produtos (nome, empresa_id, ativo) VALUES (?, ?, 1)');
+        $ins->execute([$name, $empresaId]);
         $id = (int)$pdo->lastInsertId();
     }
 

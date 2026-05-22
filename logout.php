@@ -1,0 +1,6 @@
+<?php
+// logout.php — fallback redirect para admin_logout.php
+require_once __DIR__ . '/auth.php';
+logout();
+header('Location: ./index.php');
+exit;

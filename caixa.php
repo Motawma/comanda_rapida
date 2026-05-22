@@ -1,7 +1,7 @@
 <?php
 // caixa.php - Painel do Caixa (MVP)
 require_once __DIR__ . '/auth.php';
-requireAdminOrRedirect();
+requireCaixaOrAdmin();
 ?>
 <!doctype html>
 <html lang="pt-br">
@@ -55,10 +55,8 @@ requireAdminOrRedirect();
     }
     .acoes-more .dots-menu {
       display: none;
-      position: absolute;
-      right: 0;
-      top: 100%;
-      z-index: 1050;
+      position: fixed;
+      z-index: 9999;
       background: #fff;
       border: 1px solid #ddd;
       border-radius: 8px;
@@ -192,13 +190,12 @@ requireAdminOrRedirect();
           <th>Mesa</th>
           <th>Status</th>
           <th>Total</th>
-          <th>Tempo</th>
           <th class="col-criadoem">Criado em</th>
           <th>Ações</th>
         </tr>
       </thead>
       <tbody id="tbody_pedidos">
-        <tr><td colspan="7" class="text-center small">Carregando...</td></tr>
+        <tr><td colspan="6" class="text-center small">Carregando...</td></tr>
       </tbody>
     </table>
   </div>
@@ -224,17 +221,103 @@ requireAdminOrRedirect();
 
 <!-- Modal Fechar Caixa -->
 <div class="modal fade" id="fecharCaixaModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
     <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title">Fechar Caixa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-3"><label class="form-label">Valor em caixa</label><input id="fechar_closing_cash" class="form-control" inputmode="decimal" placeholder="0.00"></div>
-        <div class="mb-3"><label class="form-label">Observações</label><input id="fechar_obs" class="form-control" maxlength="255"></div>
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title fw-bold">🔒 Fechar Caixa</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
         <div id="fecharMsg"></div>
+
+        <!-- MODO CEGO: operador NÃO vê os valores do sistema -->
+        <div class="mb-3 p-3 rounded" style="background:#1a1a2e;border:1px solid #2a2a4a;font-size:.9rem;">
+          <div class="d-flex align-items-center gap-2" style="color:#aaa;">
+            <span>🔒</span>
+            <span>Conte o dinheiro e comprovantes fisicamente e informe os valores abaixo.</span>
+          </div>
+          <div id="fechar_tentativas_info" class="mt-2 text-center" style="font-size:.8rem;color:#f39c12;display:none;"></div>
+        </div>
+
+        <!-- Pagamentos por tipo -->
+        <p class="fw-bold mb-2" style="font-size:.9rem;">Informe os valores recebidos por tipo:</p>
+
+        <div class="mb-2">
+          <label class="form-label mb-1" style="font-size:.85rem;">💵 Dinheiro</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text">R$</span>
+            <input type="number" id="fechar_dinheiro" class="form-control" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
+            <button class="btn btn-outline-success btn-confirmar-tipo" data-campo="fechar_dinheiro" title="Confirmar">✓</button>
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label mb-1" style="font-size:.85rem;">📱 Pix</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text">R$</span>
+            <input type="number" id="fechar_pix" class="form-control" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
+            <button class="btn btn-outline-success btn-confirmar-tipo" data-campo="fechar_pix" title="Confirmar">✓</button>
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label mb-1" style="font-size:.85rem;">💳 Cartão de Crédito</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text">R$</span>
+            <input type="number" id="fechar_credito" class="form-control" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
+            <button class="btn btn-outline-success btn-confirmar-tipo" data-campo="fechar_credito" title="Confirmar">✓</button>
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label mb-1" style="font-size:.85rem;">💳 Cartão de Débito</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text">R$</span>
+            <input type="number" id="fechar_debito" class="form-control" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
+            <button class="btn btn-outline-success btn-confirmar-tipo" data-campo="fechar_debito" title="Confirmar">✓</button>
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label mb-1" style="font-size:.85rem;">🏦 Valor físico em caixa (contagem)</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text">R$</span>
+            <input type="number" id="fechar_closing_cash" class="form-control" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
+            <button class="btn btn-outline-success btn-confirmar-tipo" data-campo="fechar_closing_cash" title="Confirmar">✓</button>
+          </div>
+        </div>
+
+        <!-- Diferença calculada -->
+        <div class="mb-3 p-2 rounded text-center fw-bold" id="fechar_diferenca_box" style="display:none;font-size:.95rem;"></div>
+
+        <div class="mb-2">
+          <label class="form-label mb-1" style="font-size:.85rem;">📝 Observações</label>
+          <input id="fechar_obs" class="form-control form-control-sm" maxlength="255" placeholder="Opcional">
+        </div>
+
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button id="btnFecharCaixa" type="button" class="btn btn-danger">Fechar Caixa</button>
+        <button id="btnFecharCaixa" type="button" class="btn btn-danger fw-bold">🔒 Fechar Caixa</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cupom -->
+<div class="modal fade" id="cupomModal" tabindex="-1" aria-labelledby="cupomModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content" style="background:#1a1a2e;border:1px solid #2a2a4a;color:#e0e0e0;">
+      <div class="modal-header" style="border-bottom:1px solid #2a2a4a;background:#12122a;">
+        <h5 class="modal-title" id="cupomModalLabel">🧾 Cupom do Pedido</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body p-0">
+        <iframe id="cupomIframe" src="" style="width:100%;min-height:420px;border:none;background:#fff;" loading="lazy"></iframe>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid #2a2a4a;background:#12122a;">
+        <button type="button" id="btnImprimirCupom" class="btn btn-primary">🖨️ Imprimir</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
       </div>
     </div>
   </div>
@@ -284,6 +367,34 @@ requireAdminOrRedirect();
 </div>
 
 <!-- Modal Vincular Fiado -->
+<!-- Modal Marcar Fiado (nome + telefone opcionais) -->
+<div class="modal fade" id="marcarFiadoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">💳 Marcar como Fiado</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="fiadoPedidoId" />
+        <p class="small text-muted mb-3">Identifique o cliente para facilitar a cobrança depois. Campos opcionais.</p>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Nome do cliente</label>
+          <input type="text" id="fiadoNome" class="form-control" placeholder="Ex: João Silva" maxlength="100" />
+        </div>
+        <div class="mb-1">
+          <label class="form-label fw-semibold">Telefone</label>
+          <input type="tel" id="fiadoTelefone" class="form-control" placeholder="Ex: (19) 99999-9999" maxlength="20" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="fiadoConfirmar" type="button" class="btn btn-warning text-dark fw-semibold">Confirmar Fiado</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="vincularFiadoModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -307,11 +418,144 @@ requireAdminOrRedirect();
   </div>
 </div>
 
+<!-- Modal Fechamento de Comanda -->
+<div class="modal fade" id="modalFechamento" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="fechamentoTitulo">Fechamento de Comanda</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Erro -->
+        <div id="fechErro" class="alert alert-danger py-2 small" style="display:none"></div>
+
+        <!-- Itens da comanda -->
+        <div class="table-responsive mb-3">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qtd</th>
+                <th>Subtotal</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="fechItens"></tbody>
+          </table>
+        </div>
+
+        <!-- Adicionar produto rápido -->
+        <div class="mb-3">
+          <div class="fw-semibold small mb-1">➕ Adicionar item</div>
+          <!-- Chips de categoria -->
+          <div id="chipsCategorias" class="d-flex flex-wrap gap-1 mb-2"></div>
+          <!-- Busca rápida -->
+          <div style="position:relative">
+            <input type="text" id="buscaProdutoRapida" class="form-control form-control-sm" placeholder="Buscar produto..." autocomplete="off">
+            <div id="buscaSugestoesFech" class="list-group mt-1" style="display:none; position:absolute; z-index:1050; left:0; right:0; max-height:40vh; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,.15); border-radius:8px;"></div>
+          </div>
+          <!-- Grid top produtos -->
+          <div id="topGrid" class="d-flex flex-wrap gap-1 mt-2"></div>
+          <!-- Lista filtrada -->
+          <div id="listaProdutos" class="row g-1 mt-1"></div>
+        </div>
+
+        <!-- Desconto e obs -->
+        <div class="row g-2 mb-3">
+          <div class="col-sm-6">
+            <label class="form-label small fw-semibold">Desconto (R$)</label>
+            <input type="text" id="fechDesconto" class="form-control form-control-sm" inputmode="decimal" placeholder="0,00">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small fw-semibold">Observações</label>
+            <input type="text" id="fechObs" class="form-control form-control-sm" maxlength="255" placeholder="Opcional">
+          </div>
+        </div>
+
+        <!-- Resumo financeiro -->
+        <div class="border rounded p-2 mb-3 small">
+          <div class="d-flex justify-content-between">
+            <span>Subtotal</span>
+            <strong id="fechSubtotal">R$ 0,00</strong>
+          </div>
+          <div class="d-flex justify-content-between" id="linhaPend" style="display:none!important">
+            <span>Pendências (fiado)</span>
+            <strong id="fechPendencias">R$ 0,00</strong>
+          </div>
+          <div class="d-flex justify-content-between text-danger">
+            <span>Desconto</span>
+            <strong id="fechDescTxt">R$ 0,00</strong>
+          </div>
+          <hr class="my-1">
+          <div class="d-flex justify-content-between fs-6">
+            <span class="fw-bold">TOTAL</span>
+            <strong id="fechTotal" class="text-success fs-5">R$ 0,00</strong>
+          </div>
+        </div>
+
+        <!-- Forma de pagamento -->
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Forma de Pagamento</label>
+          <select id="fechPagamento" class="form-select form-select-sm">
+            <option value="">Selecione...</option>
+            <option value="DINHEIRO">💵 Dinheiro</option>
+            <option value="PIX">📱 PIX</option>
+            <option value="CREDITO">💳 Crédito</option>
+            <option value="DEBITO">💳 Débito</option>
+          </select>
+        </div>
+
+      </div>
+      <div class="modal-footer gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnImprimirPrevia">
+          🖨️ Pré-visualizar
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success fw-semibold" id="btnConfirmarPagamento">
+          ✅ Confirmar Pagamento
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Bootstrap JS (modal) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
 let isLoading = false;
+// Busca total global de fiados e atualiza badge
+async function atualizarBadgeFiadoGlobal() {
+  try {
+    const res  = await fetch('api/listar_pendencias.php');
+    const data = await res.json();
+    if (!data.success) return;
+    const count = data.total_count || 0;
+    const badge = document.getElementById('badge-status-FIADO');
+    if (badge) {
+      badge.textContent = `FIADO: ${count}`;
+      // Destaca se houver fiados em aberto
+      if (count > 0) {
+        badge.className = 'badge bg-warning text-dark me-1';
+        badge.title = `${count} fiado(s) em aberto (todas as sessões)`;
+      }
+    }
+    // Destaca botão Pendências se houver fiados
+    const btnPend = document.getElementById('btnPendencias');
+    if (btnPend) {
+      if (count > 0) {
+        btnPend.className = 'btn btn-warning btn-sm text-dark fw-bold';
+        btnPend.textContent = `⚠️ Pendências (Fiado) ${count}`;
+      } else {
+        btnPend.className = 'btn btn-outline-primary btn-sm';
+        btnPend.textContent = 'Pendências (Fiado)';
+      }
+    }
+  } catch(e) { /* silencioso */ }
+}
+
 let _pendenciasModalInstance = null;
 let _pendenciasListenersAttached = false;
 let currentSessaoId = 0;
@@ -433,23 +677,206 @@ document.getElementById('btnAbrirCaixa')?.addEventListener('click', async () => 
   } catch (e) { if (msg) msg.innerHTML = '<div class="alert alert-danger">Erro de rede</div>'; }
 });
 
-// fechar caixa
-document.getElementById('btnFecharCaixa')?.addEventListener('click', async () => {
-  const val = parseFloat((document.getElementById('fechar_closing_cash').value || '0').replace(',','.')) || 0.0;
-  const obs = (document.getElementById('fechar_obs').value || '').trim();
-  const msg = document.getElementById('fecharMsg'); if (msg) msg.innerHTML = '';
-  if (!confirm('Confirma fechar o caixa?')) return;
+// fechar caixa — carrega resumo ao abrir o modal
+// ── FECHAMENTO CEGO ──────────────────────────────────────────────────
+// Tolerância R$ 0,50 | Máx 3 tentativas | Após 3 fecha com divergência
+let _fecharEsperado   = 0;
+let _fecharTentativas = 0;
+let _fecharPorForma   = { DINHEIRO: 0, PIX: 0, CREDITO: 0, DEBITO: 0 };
+const TOLERANCIA_CEGO = 0.50;
+const MAX_TENTATIVAS  = 3;
+const FORMAS_CEGO = [
+  { id: 'fechar_dinheiro', key: 'DINHEIRO', label: '💵 Dinheiro'          },
+  { id: 'fechar_pix',      key: 'PIX',      label: '📱 PIX'               },
+  { id: 'fechar_credito',  key: 'CREDITO',  label: '💳 Cartão de Crédito' },
+  { id: 'fechar_debito',   key: 'DEBITO',   label: '💳 Cartão de Débito'  },
+];
+
+document.getElementById('fecharCaixaModal')?.addEventListener('show.bs.modal', async () => {
+  // Reset
+  _fecharTentativas = 0;
+  _fecharEsperado   = 0;
+  ['fechar_dinheiro','fechar_pix','fechar_credito','fechar_debito','fechar_closing_cash','fechar_obs'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.querySelectorAll('.btn-confirmar-tipo').forEach(b => {
+    b.textContent = '✓'; b.className = 'btn btn-outline-success btn-confirmar-tipo';
+  });
+  document.querySelectorAll('#fecharCaixaModal .form-control').forEach(el => el.classList.remove('border-success','border-danger'));
+  const box  = document.getElementById('fechar_diferenca_box');
+  const info = document.getElementById('fechar_tentativas_info');
+  const msg  = document.getElementById('fecharMsg');
+  if (box)  { box.style.display = 'none'; box.textContent = ''; }
+  if (info) { info.style.display = 'none'; info.textContent = ''; }
+  if (msg)  { msg.innerHTML = ''; }
+
   try {
-    const res = await fetch('api/caixa_fechar.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ closing_cash: val, obs }) });
-    const j = await res.json();
-    if (!j.success) { if (msg) msg.innerHTML = '<div class="alert alert-danger">'+(j.message||'Erro')+'</div>'; return; }
-    if (_fecharModalInstance) _fecharModalInstance.hide();
-    // abrir relatório de fechamento
-    window.open('printer/fechamento_caixa.php?sessao_id=' + j.sessao_id, '_blank');
-    // recarrega página para mostrar caixa fechado
-    setTimeout(() => location.reload(), 400);
-  } catch (e) { if (msg) msg.innerHTML = '<div class="alert alert-danger">Erro de rede</div>'; }
+    const res = await fetch('api/caixa_status.php');
+    const j   = await res.json();
+    const sessao = j.sessao;
+    if (!sessao) return;
+
+    const sessaoId = sessao.id;
+    window._fecharSessaoId = sessaoId;
+
+    const r2 = await fetch('api/listar_pedidos.php?sessao_id=' + sessaoId + '&caixa=1');
+    const j2 = await r2.json();
+    const totalPago = j2.total_vendido || 0;
+    const pf        = j2.por_forma || {};
+
+    // Guarda por forma — operador NÃO vê
+    _fecharPorForma = {
+      DINHEIRO: parseFloat(pf.DINHEIRO || 0),
+      PIX:      parseFloat(pf.PIX      || 0),
+      CREDITO:  parseFloat(pf.CREDITO  || 0),
+      DEBITO:   parseFloat(pf.DEBITO   || 0),
+    };
+
+    let totalSangrias = 0, totalReforco = 0;
+    try {
+      const r3 = await fetch('api/sangria_listar.php?sessao_id=' + sessaoId);
+      const j3 = await r3.json();
+      totalSangrias = j3.total || 0;
+      totalReforco  = j3.total_reforco || 0;
+    } catch(e) {}
+
+    // Guarda internamente — operador NÃO vê
+    _fecharEsperado = totalPago - totalSangrias + totalReforco;
+    window._fecharEsperado = _fecharEsperado;
+  } catch(e) { console.error('Erro ao carregar dados do caixa:', e); }
 });
+
+function somarTiposEAtualizarCaixa() {
+  const d = parseFloat(document.getElementById('fechar_dinheiro')?.value  || '0') || 0;
+  const p = parseFloat(document.getElementById('fechar_pix')?.value       || '0') || 0;
+  const c = parseFloat(document.getElementById('fechar_credito')?.value   || '0') || 0;
+  const b = parseFloat(document.getElementById('fechar_debito')?.value    || '0') || 0;
+  const closingEl = document.getElementById('fechar_closing_cash');
+  if (closingEl) closingEl.value = (d + p + c + b).toFixed(2);
+}
+
+document.querySelectorAll('.btn-confirmar-tipo').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const campo = this.dataset.campo;
+    const input = document.getElementById(campo);
+    if (!input) return;
+    this.textContent = '✅';
+    this.classList.remove('btn-outline-success');
+    this.classList.add('btn-success');
+    input.classList.add('border-success');
+    if (campo !== 'fechar_closing_cash') somarTiposEAtualizarCaixa();
+  });
+});
+
+['fechar_dinheiro','fechar_pix','fechar_credito','fechar_debito'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', somarTiposEAtualizarCaixa);
+});
+
+document.getElementById('btnFecharCaixa')?.addEventListener('click', async () => {
+  const obs      = (document.getElementById('fechar_obs')?.value || '').trim();
+  const dinheiro = parseFloat(document.getElementById('fechar_dinheiro')?.value  || '0') || 0;
+  const pix      = parseFloat(document.getElementById('fechar_pix')?.value       || '0') || 0;
+  const credito  = parseFloat(document.getElementById('fechar_credito')?.value   || '0') || 0;
+  const debito   = parseFloat(document.getElementById('fechar_debito')?.value    || '0') || 0;
+  const val      = dinheiro + pix + credito + debito;
+  const msg      = document.getElementById('fecharMsg');
+  const box      = document.getElementById('fechar_diferenca_box');
+  const info     = document.getElementById('fechar_tentativas_info');
+  if (msg) msg.innerHTML = '';
+  if (box) { box.style.display = 'none'; box.textContent = ''; }
+
+  // Verifica cada forma individualmente
+  // Se todos os por_forma são zero mas há total vendido = pedidos sem forma registrada
+  // Nesse caso pula validação por tipo e valida só o total físico
+  const totalEsperadoPorForma = (_fecharPorForma.DINHEIRO||0) + (_fecharPorForma.PIX||0) + (_fecharPorForma.CREDITO||0) + (_fecharPorForma.DEBITO||0);
+  const semFormaRegistrada = totalEsperadoPorForma === 0 && (_fecharEsperado || 0) > 0;
+
+  const erros = semFormaRegistrada ? [] : FORMAS_CEGO.filter(f => {
+    const informado = parseFloat(document.getElementById(f.id)?.value || '0') || 0;
+    const esperado  = _fecharPorForma[f.key] || 0;
+    return (esperado > 0 || informado > 0) && Math.abs(informado - esperado) > TOLERANCIA_CEGO;
+  });
+
+  const diferenca = val - (_fecharEsperado || 0);
+
+  // ✅ TUDO CONFERE
+  if (erros.length === 0) {
+    if (box) {
+      box.style.cssText = 'display:block;background:#0a3622;color:#2ecc71;border:1px solid #2ecc71;border-radius:8px;padding:.6rem;text-align:center;font-weight:bold;';
+      box.textContent   = '✅ Caixa conferido! Tudo certo.';
+    }
+    await new Promise(r => setTimeout(r, 900));
+    await executarFechamento({ val, obs, dinheiro, pix, credito, debito, diferenca, comDivergencia: false });
+    return;
+  }
+
+  // ❌ DIVERGÊNCIA por forma
+  _fecharTentativas++;
+  const restantes = MAX_TENTATIVAS - _fecharTentativas;
+
+  if (_fecharTentativas < MAX_TENTATIVAS) {
+    const nomesErrados = erros.map(f => f.label).join(', ');
+    if (box) {
+      box.style.cssText = 'display:block;background:#3d0a0a;color:#ff6b6b;border:1px solid #e74c3c;border-radius:8px;padding:.75rem;text-align:center;font-weight:bold;';
+      box.innerHTML = `⚠️ Refaça a contagem de: <strong>${nomesErrados}</strong>`;
+    }
+    if (info) {
+      info.style.display = 'block';
+      info.textContent   = `Tentativa ${_fecharTentativas} de ${MAX_TENTATIVAS} — ${restantes} restante${restantes > 1 ? 's' : ''}.`;
+    }
+    // Limpa APENAS os campos com erro
+    erros.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (el) { el.value = ''; el.classList.remove('border-success'); el.classList.add('border-danger'); }
+      const btn = document.querySelector(`.btn-confirmar-tipo[data-campo="${f.id}"]`);
+      if (btn) { btn.textContent = '✓'; btn.className = 'btn btn-outline-success btn-confirmar-tipo'; }
+    });
+    somarTiposEAtualizarCaixa();
+    return;
+  }
+
+  // ⚠️ ESGOTOU TENTATIVAS
+  const nomesErrados = erros.map(f => f.label).join(', ');
+
+  if (!confirm(`⚠️ Atenção!\n\nVocê utilizou todas as ${MAX_TENTATIVAS} tentativas.\nFormas com divergência: ${nomesErrados}\n\nO caixa será fechado COM DIVERGÊNCIA registrada.\nO gestor irá verificar.\n\nConfirma o fechamento?`)) return;
+
+  if (box) {
+    box.style.cssText = 'display:block;background:#3d2800;color:#f39c12;border:1px solid #f39c12;border-radius:8px;padding:.6rem;text-align:center;font-weight:bold;';
+    box.textContent   = '⚠️ Fechando com divergência registrada. O gestor irá verificar.';
+  }
+
+  await executarFechamento({ val, obs, dinheiro, pix, credito, debito, diferenca, comDivergencia: true });
+});
+
+async function executarFechamento({ val, obs, dinheiro, pix, credito, debito, diferenca, comDivergencia }) {
+  const msg = document.getElementById('fecharMsg');
+  try {
+    const res = await fetch('api/caixa_fechar.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        closing_cash:    val,
+        obs:             obs + (comDivergencia ? ' [FECHADO COM DIVERGÊNCIA]' : ''),
+        total_dinheiro:  dinheiro,
+        total_pix:       pix,
+        total_credito:   credito,
+        total_debito:    debito,
+        com_divergencia: comDivergencia,
+        diferenca_real:  diferenca,
+      })
+    });
+    const j = await res.json();
+    if (!j.success) {
+      if (msg) msg.innerHTML = '<div class="alert alert-danger">' + (j.message || 'Erro ao fechar caixa') + '</div>';
+      return;
+    }
+    if (_fecharModalInstance) _fecharModalInstance.hide();
+    window.open('printer/fechamento_caixa.php?sessao_id=' + j.sessao_id, '_blank');
+    setTimeout(() => location.reload(), 400);
+  } catch(e) {
+    if (msg) msg.innerHTML = '<div class="alert alert-danger">Erro de rede ao fechar caixa</div>';
+  }
+}
 
 // === funções globais exigidas pelos botões (devem estar no escopo global) ===
 async function atualizarStatus(pedidoId, status) {
@@ -501,6 +928,25 @@ async function reimprimir(pedidoId) {
     alert('Erro de rede: ' + e.message);
   }
 }
+
+// ── Modal Cupom ────────────────────────────────────────────────
+let _cupomModalInstance = null;
+
+function abrirCupomModal(pedidoId) {
+  const iframe = document.getElementById('cupomIframe');
+  if (iframe) iframe.src = 'printer/cupom.php?pedido_id=' + pedidoId;
+  const modalEl = document.getElementById('cupomModal');
+  if (!_cupomModalInstance) _cupomModalInstance = new bootstrap.Modal(modalEl);
+  _cupomModalInstance.show();
+}
+
+document.getElementById('btnImprimirCupom')?.addEventListener('click', () => {
+  const iframe = document.getElementById('cupomIframe');
+  if (iframe?.contentWindow) {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  }
+});
 
 function abrirCancelarModal(pedidoId) {
   const motivoInput = document.getElementById('cancel_motivo');
@@ -554,6 +1000,42 @@ async function cancelarPedidoRequest() {
     alert('Erro de rede: ' + (e && e.message ? e.message : e));
   }
 }
+
+// ── Modal Marcar Fiado ──────────────────────────────────────────────
+let _marcarFiadoModalInstance = null;
+
+function abrirMarcarFiadoModal(pedidoId) {
+  document.getElementById('fiadoPedidoId').value  = pedidoId;
+  document.getElementById('fiadoNome').value       = '';
+  document.getElementById('fiadoTelefone').value   = '';
+  const el = document.getElementById('marcarFiadoModal');
+  if (!_marcarFiadoModalInstance) _marcarFiadoModalInstance = new bootstrap.Modal(el);
+  _marcarFiadoModalInstance.show();
+}
+
+document.getElementById('fiadoConfirmar').addEventListener('click', async () => {
+  const pedidoId = parseInt(document.getElementById('fiadoPedidoId').value) || 0;
+  const nome     = document.getElementById('fiadoNome').value.trim();
+  const telefone = document.getElementById('fiadoTelefone').value.trim();
+  if (!pedidoId) return;
+
+  // Salvar nome/telefone no pedido antes de mudar o status
+  if (nome || telefone) {
+    try {
+      await fetch('api/pedido_atualizar_cliente.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ pedido_id: pedidoId, fiado_nome: nome, fiado_telefone: telefone })
+      });
+    } catch(e) { /* ignora erro silencioso */ }
+  }
+
+  const ok = await atualizarStatus(pedidoId, 'FIADO');
+  if (ok) {
+    _marcarFiadoModalInstance.hide();
+    await loadPedidos();
+  }
+});
 
 // função global para abrir modal de vincular fiado
 function openVincularFiadoModal(fiado) {
@@ -641,7 +1123,7 @@ async function loadPedidos() {
     if (!resp.ok) throw new Error('HTTP error ' + resp.status);
     const data = await resp.json();
     if (!data || !data.success) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro ao carregar</td></tr>';
       console.error('listar_pedidos error', data);
       return;
     }
@@ -653,9 +1135,13 @@ async function loadPedidos() {
     Object.keys(counters).forEach(k => {
       const b = document.createElement('span');
       b.className = statusClass(k) + ' me-1';
+      b.id = 'badge-status-' + k;
       b.textContent = `${k}: ${counters[k]}`;
       div.appendChild(b);
     });
+
+    // Badge FIADO mostra total global (todas as sessões)
+    atualizarBadgeFiadoGlobal();
 
     // total vendido
     document.getElementById('total_vendido').textContent = formatBRL(data.total_vendido);
@@ -663,7 +1149,7 @@ async function loadPedidos() {
     // tabela
     tbody.innerHTML = '';
     if (!data.pedidos || data.pedidos.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center small">Nenhum pedido</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center small">Nenhum pedido</td></tr>';
       return;
     }
 
@@ -682,7 +1168,6 @@ async function loadPedidos() {
         <td>${p.mesa}</td>
         <td><span class="${statusClass(p.status)} status-badge">${p.status}</span></td>
         <td>${formatBRL(p.total)}</td>
-        <td>${calcTempoTotal(p.created_at, p.pronto_at)}</td>
         <td class="small col-criadoem">${p.created_at}</td>
         <td></td>
       `;
@@ -724,7 +1209,7 @@ async function loadPedidos() {
         return b;
       };
 
-      const btnCupom = makeBtn('btn btn-sm btn-outline-primary me-1','Cupom', () => window.open('printer/cupom.php?pedido_id=' + p.id, '_blank'));
+      const btnCupom = makeBtn('btn btn-sm btn-outline-primary me-1','Cupom', () => abrirCupomModal(p.id));
 
       // define botões usados nas diferentes branches de status
       const btnPrep = makeBtn('btn btn-sm btn-warning me-1', 'Em preparo', () => {
@@ -767,14 +1252,14 @@ async function loadPedidos() {
           case 'PRONTO':
             tdAcoes.appendChild(btnPago);
             menuItems.push({ text: '🖨️ Reimprimir', onClick: () => reimprimir(p.id) });
-            menuItems.push({ text: '💳 Marcar Fiado', onClick: () => { (async () => { if (await atualizarStatus(p.id, 'FIADO')) await loadPedidos(); })(); } });
+            menuItems.push({ text: '💳 Marcar Fiado', onClick: () => abrirMarcarFiadoModal(p.id) });
             menuItems.push({ text: '⬅️ Voltar Em preparo', onClick: () => { if (confirm('Confirma voltar este pedido para EM_PREPARO?')) { atualizarStatus(p.id, 'EM_PREPARO').then(() => loadPedidos()); } } });
             menuItems.push({ text: '❌ Cancelar', onClick: () => abrirCancelarModal(p.id), cls: 'text-danger' });
             break;
           case 'ENTREGUE':
             tdAcoes.appendChild(btnPago);
             menuItems.push({ text: '🖨️ Reimprimir', onClick: () => reimprimir(p.id) });
-            menuItems.push({ text: '💳 Marcar Fiado', onClick: () => { (async () => { if (await atualizarStatus(p.id, 'FIADO')) await loadPedidos(); })(); } });
+            menuItems.push({ text: '💳 Marcar Fiado', onClick: () => abrirMarcarFiadoModal(p.id) });
             menuItems.push({ text: '⬅️ Voltar Pronto', onClick: () => { if (confirm('Confirma voltar este pedido para PRONTO?')) { atualizarStatus(p.id, 'PRONTO').then(() => loadPedidos()); } } });
             menuItems.push({ text: '❌ Cancelar', onClick: () => abrirCancelarModal(p.id), cls: 'text-danger' });
             break;
@@ -813,8 +1298,13 @@ async function loadPedidos() {
 
           btnDots.addEventListener('click', (e) => {
             e.stopPropagation();
-            // Fechar outros menus abertos
             document.querySelectorAll('.dots-menu.show').forEach(m => { if (m !== menu) m.classList.remove('show'); });
+            const isShow = menu.classList.contains('show');
+            if (!isShow) {
+              const rect = btnDots.getBoundingClientRect();
+              menu.style.top  = (rect.bottom + 4) + 'px';
+              menu.style.left = Math.max(4, rect.right - 170) + 'px';
+            }
             menu.classList.toggle('show');
             pauseAutoRefresh(5000);
           });
@@ -830,7 +1320,7 @@ async function loadPedidos() {
 
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar (ver console)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro ao carregar (ver console)</td></tr>';
   } finally {
     isLoading = false;
   }
@@ -928,11 +1418,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // Show list with header 'Fiado em' and prefer fiado_at
     html += '<table class="table table-sm">';
-    html += '<thead><tr><th>ID</th><th>Mesa</th><th>Total</th><th>Fiado em</th><th>Ações</th></tr></thead><tbody>';
+    html += '<thead><tr><th>ID</th><th>Mesa</th><th>Cliente</th><th>Total</th><th>Fiado em</th><th>Ações</th></tr></thead><tbody>';
     list.forEach(p => {
       // Preferir fiado_at, mas tratar zero-date '0000-00-00 00:00:00' como ausente
       const fiadoAt = (p.fiado_at && p.fiado_at !== '0000-00-00 00:00:00') ? p.fiado_at : (p.created_at || '');
-      html += `<tr><td>${p.id}</td><td>${p.mesa}</td><td>${formatBRL(p.total)}</td><td class="small">${fiadoAt}</td><td>`;
+      const nome = p.fiado_nome ? `<span class="fw-semibold">${p.fiado_nome}</span>` : '<span class="text-muted small">—</span>';
+      const tel  = p.fiado_telefone ? `<br><span class="small text-muted">📞 ${p.fiado_telefone}</span>` : '';
+      html += `<tr><td>${p.id}</td><td>${p.mesa}</td><td>${nome}${tel}</td><td>${formatBRL(p.total)}</td><td class="small">${fiadoAt}</td><td>`;
       // Botão para vincular FIADO a uma comanda aberta da mesma mesa
       html += `<button class="btn btn-sm btn-outline-primary me-1" onclick="openVincularFiadoModal({id:${p.id}, mesa:'${p.mesa}', total:${p.total}, fiado_at:'${fiadoAt}'})">Adicionar à comanda…</button>`;
       // Do NOT close the modal after action; refresh pendências and pedidos instead
@@ -990,7 +1482,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       // Caixa fechado: limpar tabela e mostrar mensagem
       const tbody = document.getElementById('tbody_pedidos');
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Caixa fechado. Abra o caixa para visualizar os pedidos.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Caixa fechado. Abra o caixa para visualizar os pedidos.</td></tr>';
       document.getElementById('total_vendido').textContent = 'R$ 0,00';
       document.getElementById('counters').innerHTML = '';
     }
@@ -1503,91 +1995,5 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 }); // fecha o DOMContentLoaded
+
 </script>
-
-<!-- Modal Fechamento de Comanda -->
-<div class="modal fade" id="modalFechamento" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="fechamentoTitulo">Fechamento</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-
-      <div class="modal-body">
-        <!-- Erro -->
-        <div id="fechErro" class="alert alert-danger" style="display:none;"></div>
-
-        <!-- Cardápio rápido: busca, categorias e TOP -->
-        <div class="mb-2">
-          <div class="mb-2">
-            <input id="buscaProdutoRapida" class="form-control" placeholder="Buscar item..." autocomplete="off">
-            <div id="buscaSugestoesFech" class="list-group mt-1" style="display:none; position:absolute; z-index:1050; left:0; right:0; max-height:40vh; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,.15); border-radius:8px;"></div>
-          </div>
-          <div id="chipsCategorias" class="mb-2 d-flex gap-2 flex-wrap"></div>
-
-          <div id="topProdutos" class="mb-2">
-            <h6 class="mb-2">🔥 Mais pedidos</h6>
-            <div id="topGrid" class="d-flex flex-wrap gap-2"></div>
-          </div>
-        </div>
-
-        <!-- Itens -->
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th style="width:120px;">Qtd</th>
-                <th style="width:140px;">Subtotal</th>
-                <th style="width:60px;"></th>
-              </tr>
-            </thead>
-            <tbody id="fechItens"></tbody>
-          </table>
-        </div>
-
-        <!-- Observações + desconto -->
-        <div class="row g-2">
-          <div class="col-md-8">
-            <label class="form-label">Observações</label>
-            <textarea id="fechObs" class="form-control" rows="2" placeholder="Ex: Desconto de cortesia..."></textarea>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Desconto (R$)</label>
-            <input id="fechDesconto" class="form-control" inputmode="decimal" placeholder="0,00">
-          </div>
-        </div>
-
-        <!-- Resumo -->
-        <div class="mt-3 p-2 border rounded">
-          <div class="d-flex justify-content-between"><span>Subtotal</span><strong id="fechSubtotal">R$ 0,00</strong></div>
-          <div class="d-flex justify-content-between" id="linhaPend" style="display:none;">
-            <span>Pendências (fiado)</span><strong id="fechPendencias">R$ 0,00</strong>
-          </div>
-          <div class="d-flex justify-content-between"><span>Desconto</span><strong id="fechDescTxt">R$ 0,00</strong></div>
-          <hr class="my-2">
-          <div class="d-flex justify-content-between"><span>TOTAL A PAGAR</span><strong id="fechTotal">R$ 0,00</strong></div>
-        </div>
-
-        <!-- Ações -->
-        <div class="mt-3 d-flex gap-2 flex-wrap">
-          <button class="btn btn-outline-secondary" id="btnImprimirPrevia">Imprimir Conferência</button>
-
-          <select class="form-select" id="fechPagamento" style="max-width:260px;">
-            <option value="">Selecionar método…</option>
-            <option value="DINHEIRO">Dinheiro</option>
-            <option value="PIX">PIX</option>
-            <option value="CREDITO">Cartão Crédito</option>
-            <option value="DEBITO">Cartão Débito</option>
-          </select>
-
-          <button class="btn btn-success" id="btnConfirmarPagamento">✅ Confirmar Pagamento</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>

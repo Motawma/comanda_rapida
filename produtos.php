@@ -1,10 +1,24 @@
 <?php
 require_once __DIR__ . '/funcoes.php';
+requireAdminPage();
+require_once __DIR__ . '/licenca.php';
+if (!empresaTemRecurso(currentEmpresaId(), 'produtos')) {
+    http_response_code(403);
+    echo '<!doctype html><html><head><meta charset="utf-8">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head><body class="bg-light d-flex align-items-center justify-content-center" style="min-height:100vh">
+    <div class="text-center"><h3>🔒 Módulo não disponível</h3>
+    <p class="text-muted">O módulo Produtos não está habilitado no seu plano.</p>
+    <a href="comanda.php" class="btn btn-outline-secondary mt-2">Voltar</a>
+    </div></body></html>';
+    exit;
+}
 ?><!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="shortcut icon" href="favicon.svg">
   <title>Produtos • Comanda Rápida</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
@@ -14,12 +28,40 @@ require_once __DIR__ . '/funcoes.php';
     .card { background: #ffffff; border: 1px solid #e9ecef; }
     .muted { color: #6c757d; }
     .click { cursor: pointer; }
-    /* ensure small visual tweaks (spacing) */
     .table thead th { color: #495057; }
+
+    /* ===== COMPOSIÇÕES ===== */
+    .escolha-card {
+      border: 1px solid #dee2e6;
+      border-radius: 10px;
+      padding: .75rem;
+      margin-bottom: .75rem;
+      background: #f8f9fa;
+    }
+    .escolha-card .escolha-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: .6rem;
+    }
+    .escolha-card .escolha-header input {
+      flex: 1; font-weight: 600;
+    }
+    .opcoes-lista { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+    .opcao-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #fff; border: 1px solid #ced4da; border-radius: 20px;
+      padding: .2rem .6rem; font-size: .85rem;
+    }
+    .opcao-tag .btn-remove-opcao {
+      background: none; border: none; color: #dc3545;
+      cursor: pointer; padding: 0; font-size: .9rem; line-height: 1;
+    }
+    .add-opcao-wrap { display: flex; gap: 4px; margin-top: .5rem; }
+    .add-opcao-wrap input { flex: 1; }
   </style>
 </head>
 <body class="bg-light">
 <?php require_once __DIR__ . '/partials/admin_nav.php'; ?>
+<?php require_once __DIR__ . '/partials/licenca_aviso.php'; ?>
+<?php include __DIR__ . '/partials/modal_configurar_empresa.php'; ?>
 <?php
 require_once __DIR__ . '/auth.php';
 if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
@@ -99,9 +141,13 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
         <div class="modal-body">
           <input type="hidden" id="p_id" />
           <div class="row g-2">
-            <div class="col-12 col-md-7">
+            <div class="col-12 col-md-5">
               <label class="form-label">Nome *</label>
               <input class="form-control" id="p_nome" />
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label">Código</label>
+              <input class="form-control" id="p_codigo" placeholder="Ex: 001" maxlength="20" />
             </div>
             <div class="col-12 col-md-5">
               <label class="form-label">Categoria</label>
@@ -146,6 +192,37 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
             </div>
           </div>
           <div class="mt-3 muted" id="p_estoque_info"></div>
+
+          <!-- FOTO DO PRODUTO -->
+          <hr class="my-3">
+          <label class="form-label fw-semibold">Foto do produto</label>
+          <div class="d-flex align-items-center gap-3">
+            <div id="p_imagem_preview" style="width:80px;height:80px;border-radius:50%;border:2px dashed #ccc;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f8f9fa;flex-shrink:0;font-size:1.8rem;">📷</div>
+            <div class="flex-grow-1">
+              <input type="file" class="form-control" id="p_imagem" accept="image/jpeg,image/png,image/webp">
+              <div class="form-text">JPG, PNG ou WebP. Máx 2MB.</div>
+              <button type="button" class="btn btn-sm btn-outline-danger mt-1 d-none" id="btnRemoverImagem">Remover foto</button>
+            </div>
+          </div>
+
+          <!-- COMPOSIÇÕES -->
+          <hr class="my-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div>
+              <strong>Composições / Escolhas</strong>
+              <div class="muted" style="font-size:.82rem;">Defina as escolhas que o cliente fará ao pedir este produto (ex: Proteína, Bebida)</div>
+            </div>
+            <div class="d-flex gap-2">
+              <div class="dropdown">
+                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                  Templates
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" id="templatesList"></ul>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddEscolha">+ Escolha</button>
+            </div>
+          </div>
+          <div id="composicoesLista"></div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -441,6 +518,7 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
     function limparModal(){
       document.getElementById('p_id').value='';
       document.getElementById('p_nome').value='';
+      document.getElementById('p_codigo').value='';
       document.getElementById('p_categoria').value='';
       document.getElementById('p_preco').value='0,00';
       document.getElementById('p_custo').value='';
@@ -450,9 +528,34 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
       document.getElementById('p_ativo').value='1';
       document.getElementById('p_estoque_info').textContent='';
       document.getElementById('modalTitulo').textContent='Novo produto';
+      document.getElementById('p_imagem').value='';
+      document.getElementById('p_imagem_preview').innerHTML='📷';
+      document.getElementById('p_imagem_preview').dataset.atual='';
+      document.getElementById('btnRemoverImagem').classList.add('d-none');
+      composicoes = [];
+      _composicoesCarregadas = false;
+      renderComposicoes();
     }
 
     els.btnNovo.addEventListener('click', ()=>{ limparModal(); modal.show(); });
+
+    document.getElementById('p_imagem').addEventListener('change', function() {
+      const file = this.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('p_imagem_preview').innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+        document.getElementById('btnRemoverImagem').classList.remove('d-none');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('btnRemoverImagem').addEventListener('click', () => {
+      document.getElementById('p_imagem').value = '';
+      document.getElementById('p_imagem_preview').innerHTML = '📷';
+      document.getElementById('p_imagem_preview').dataset.atual = '';
+      document.getElementById('btnRemoverImagem').classList.add('d-none');
+    });
     els.btnFiltrar.addEventListener('click', listar);
     els.btnRecarregar.addEventListener('click', listar);
 
@@ -508,16 +611,33 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
       const p = j.produto;
       document.getElementById('p_id').value = p.id;
       document.getElementById('p_nome').value = p.nome || '';
-      // preco (usar campo preco ou legacy preco_venda)
+      document.getElementById('p_codigo').value = p.codigo || '';
       document.getElementById('p_preco').value = moneyBR(p.preco ?? p.preco_venda ?? 0);
-      // categoria: set by text
-      document.getElementById('p_categoria').value = p.categoria ?? (p.categoria_nome ?? '');
-      // controla estoque and minimo (if present)
+      // Tenta setar pelo ID primeiro; se não encontrar, tenta pelo nome (legado)
+      const selCat = document.getElementById('p_categoria');
+      if (p.categoria_id && Array.from(selCat.options).some(o => o.value === String(p.categoria_id))) {
+        selCat.value = String(p.categoria_id);
+      } else if (p.categoria) {
+        selCat.value = p.categoria;
+      }
       if (typeof p.controla_estoque !== 'undefined') document.getElementById('p_controla').value = String(p.controla_estoque ? 1 : 0);
       document.getElementById('p_minimo').value = (typeof p.estoque_minimo !== 'undefined' && p.estoque_minimo !== null) ? String(p.estoque_minimo) : '';
       document.getElementById('p_ativo').value = String(p.ativo ?? 1);
       document.getElementById('p_estoque_info').textContent = 'Estoque atual: ' + Number(p.estoque_atual||0).toLocaleString('pt-BR');
+      if (p.imagem) {
+        document.getElementById('p_imagem_preview').innerHTML = `<img src="${p.imagem}" style="width:100%;height:100%;object-fit:cover;">`;
+        document.getElementById('p_imagem_preview').dataset.atual = p.imagem;
+        document.getElementById('btnRemoverImagem').classList.remove('d-none');
+      }
+
+      // Bloqueia salvar enquanto composições carregam
+      const btnSalvar = document.getElementById('btnSalvar');
+      btnSalvar.disabled = true;
+      btnSalvar.textContent = 'Carregando...';
       modal.show();
+      await carregarComposicoes(p.id);
+      btnSalvar.disabled = false;
+      btnSalvar.textContent = 'Salvar';
     };
 
     document.getElementById('btnSalvar').addEventListener('click', async ()=>{
@@ -535,6 +655,8 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
       const fd = new FormData();
       if (id) fd.set('id', id);
       fd.set('nome', nome);
+      const codigoVal = document.getElementById('p_codigo').value.trim();
+      if (codigoVal) fd.set('codigo', codigoVal);
       fd.set('preco', precoVal);
       // if categoriaVal is a numeric id > 0, send categoria_id; otherwise send categoria text
       if (categoriaVal !== '') {
@@ -548,10 +670,17 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
       fd.set('controla_estoque', String(controla));
       if (minimo !== '') fd.set('estoque_minimo', minimo);
       fd.set('ativo', String(ativoVal));
+      const imgFile = document.getElementById('p_imagem').files[0];
+      if (imgFile) fd.set('imagem', imgFile);
+      const imgAtual = document.getElementById('p_imagem_preview').dataset.atual;
+      if (!imgAtual && !imgFile) fd.set('remover_imagem', '1');
 
       const r = await fetch(api.salvar, { method:'POST', body: fd });
       const j = await r.json();
       if(!j.ok && !j.success) return alert(j.message || j.error || 'Erro ao salvar');
+      // Salva composições usando o id retornado ou o id existente
+      const produto_id_salvo = j.id || id;
+      if (produto_id_salvo) await salvarComposicoes(produto_id_salvo);
       modal.hide();
       await listar();
     });
@@ -566,6 +695,210 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
       if(!j.ok) return alert(j.error||'Erro');
       await listar();
     };
+
+    // ===== COMPOSIÇÕES =====
+    let composicoes = [];
+    let _composicoesCarregadas = false; // array local de escolhas durante edição
+
+    // ===== TEMPLATES RÁPIDOS =====
+    // Cada template pode ter "escolhas" (array, adiciona várias de uma vez)
+    // ou "titulo"+"opcoes" (atalho para uma única escolha)
+    const ESPETOS_LISTA = [
+      'Espeto de Carne','Espeto de Frango','Espeto de Coração',
+      'Espeto de Queijo Coalho','Espeto de Linguiça de Pernil',
+      'Espeto Misto','Espeto de Camarão','Espeto de Kafta',
+      'Espeto de Tulipa','Espeto de Panceta','Espeto de Fraldinha',
+      'Espeto de Legumes','Espeto Medalhão'
+    ];
+
+    const TEMPLATES = [
+      { label: '🍽️ Prato Pronto (espetaria)',
+        escolhas: [
+          { titulo: 'Acompanhamento',  obrig: 0, qtd: 1, opcoes: ['Arroz','Mandioca','Farofa','Salada','Vinagrete'] },
+          { titulo: '1º Espeto',       obrig: 1, qtd: 1, opcoes: [...ESPETOS_LISTA] },
+          { titulo: '2º Espeto',       obrig: 1, qtd: 1, opcoes: [...ESPETOS_LISTA] },
+        ]
+      },
+      { label: '🥩 Ponto da Carne',   titulo: 'Ponto da Carne',   obrig: 1, qtd: 1, opcoes: ['Mal Passado','Ao Ponto','Bem Passado'] },
+      { label: '🍚 Acompanhamento',   titulo: 'Acompanhamento',   obrig: 0, qtd: 1, opcoes: ['Arroz','Mandioca','Farofa','Salada','Vinagrete','Sem Acompanhamento'] },
+      { label: '🧄 Molho',            titulo: 'Molho',            obrig: 0, qtd: 1, opcoes: ['Com Molho','Sem Molho','Molho à parte'] },
+      { label: '🫙 Sal',              titulo: 'Sal',              obrig: 0, qtd: 1, opcoes: ['Com Sal','Sem Sal'] },
+      { label: '📏 Tamanho',          titulo: 'Tamanho',          obrig: 1, qtd: 1, opcoes: ['Pequeno','Médio','Grande'] },
+      { label: '🧃 Sabor',            titulo: 'Sabor',            obrig: 1, qtd: 1, opcoes: ['Maracujá','Laranja','Limão','Uva','Goiaba'] },
+      { label: '🧊 Gelo e Limão',     titulo: 'Gelo e Limão',     obrig: 0, qtd: 1, opcoes: ['Com Gelo e Limão','Sem Gelo','Sem Limão','Sem os dois'] },
+      { label: '🍺 Embalagem',        titulo: 'Embalagem',        obrig: 1, qtd: 1, opcoes: ['Lata 350ml','Long Neck 355ml','600ml','1L'] },
+    ];
+
+    (function initTemplates() {
+      const ul = document.getElementById('templatesList');
+      TEMPLATES.forEach((t, i) => {
+        const li = document.createElement('li');
+        // Separador visual antes do primeiro template individual
+        if (i === 1) {
+          const sep = document.createElement('li');
+          sep.innerHTML = '<hr class="dropdown-divider">';
+          ul.appendChild(sep);
+        }
+        li.innerHTML = `<a class="dropdown-item" href="#" data-ti="${i}">${t.label}</a>`;
+        li.querySelector('a').addEventListener('click', e => {
+          e.preventDefault();
+          _composicoesCarregadas = true;
+          const lista = t.escolhas
+            ? t.escolhas.map(c => ({ titulo: c.titulo, qtd_escolhas: c.qtd, obrigatorio: c.obrig, opcoes: [...c.opcoes] }))
+            : [{ titulo: t.titulo, qtd_escolhas: t.qtd || 1, obrigatorio: t.obrig, opcoes: [...t.opcoes] }];
+          composicoes.push(...lista);
+          renderComposicoes();
+        });
+        ul.appendChild(li);
+      });
+    })();
+    // ===== FIM TEMPLATES =====
+
+    function renderComposicoes() {
+      const lista = document.getElementById('composicoesLista');
+      if (composicoes.length === 0) {
+        lista.innerHTML = '<div class="muted" style="font-size:.85rem;">Nenhuma escolha definida. Clique em "+ Escolha" para adicionar.</div>';
+        return;
+      }
+      lista.innerHTML = composicoes.map((e, ei) => `
+        <div class="escolha-card" data-ei="${ei}">
+          <div class="escolha-header">
+            <input class="form-control form-control-sm escolha-titulo" data-ei="${ei}"
+              placeholder="Nome da escolha (ex: Proteína)" value="${escapeHtml(e.titulo)}" />
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small">Qtd:</label>
+              <input type="number" min="1" max="10" class="form-control form-control-sm escolha-qtd"
+                data-ei="${ei}" style="width:60px" value="${e.qtd_escolhas}" />
+              <div class="form-check mb-0">
+                <input class="form-check-input escolha-obrig" type="checkbox" data-ei="${ei}" id="obrig_${ei}" ${e.obrigatorio ? 'checked' : ''}>
+                <label class="form-check-label small" for="obrig_${ei}">Obrigatória</label>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-danger btn-remove-escolha" data-ei="${ei}">🗑</button>
+            </div>
+          </div>
+          <div class="opcoes-lista" id="opcoes_${ei}">
+            ${e.opcoes.map((op, oi) => `
+              <span class="opcao-tag">
+                ${escapeHtml(op)}
+                <button type="button" class="btn-remove-opcao" data-ei="${ei}" data-oi="${oi}" title="Remover">×</button>
+              </span>
+            `).join('')}
+          </div>
+          <div class="add-opcao-wrap">
+            <input type="text" class="form-control form-control-sm nova-opcao-input"
+              placeholder="Nova opção (ex: Bife, Frango...)" data-ei="${ei}" />
+            <button type="button" class="btn btn-sm btn-outline-secondary btn-add-opcao" data-ei="${ei}">+ Opção</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Enter no input de opção adiciona
+      lista.querySelectorAll('.nova-opcao-input').forEach(inp => {
+        inp.addEventListener('keydown', e => {
+          if (e.key === 'Enter') { e.preventDefault(); adicionarOpcao(Number(inp.dataset.ei)); }
+        });
+      });
+
+      // Atualiza titulo ao digitar
+      lista.querySelectorAll('.escolha-titulo').forEach(inp => {
+        inp.addEventListener('input', () => { composicoes[Number(inp.dataset.ei)].titulo = inp.value; });
+      });
+
+      // Atualiza qtd ao mudar
+      lista.querySelectorAll('.escolha-qtd').forEach(inp => {
+        inp.addEventListener('change', () => { composicoes[Number(inp.dataset.ei)].qtd_escolhas = Math.max(1, parseInt(inp.value) || 1); });
+      });
+
+      // Atualiza obrigatorio
+      lista.querySelectorAll('.escolha-obrig').forEach(chk => {
+        chk.addEventListener('change', () => { composicoes[Number(chk.dataset.ei)].obrigatorio = chk.checked ? 1 : 0; });
+      });
+
+      // Remover escolha
+      lista.querySelectorAll('.btn-remove-escolha').forEach(btn => {
+        btn.addEventListener('click', () => {
+          composicoes.splice(Number(btn.dataset.ei), 1);
+          renderComposicoes();
+        });
+      });
+
+      // Adicionar opção via botão
+      lista.querySelectorAll('.btn-add-opcao').forEach(btn => {
+        btn.addEventListener('click', () => adicionarOpcao(Number(btn.dataset.ei)));
+      });
+
+      // Remover opção
+      lista.querySelectorAll('.btn-remove-opcao').forEach(btn => {
+        btn.addEventListener('click', () => {
+          composicoes[Number(btn.dataset.ei)].opcoes.splice(Number(btn.dataset.oi), 1);
+          renderComposicoes();
+        });
+      });
+    }
+
+    function adicionarOpcao(ei) {
+      const inp = document.querySelector(`.nova-opcao-input[data-ei="${ei}"]`);
+      if (!inp) return;
+      const nome = inp.value.trim();
+      if (!nome) return;
+      composicoes[ei].opcoes.push(nome);
+      inp.value = '';
+      renderComposicoes();
+      // Foca o input de novo para facilitar adicionar mais
+      setTimeout(() => {
+        const newInp = document.querySelector(`.nova-opcao-input[data-ei="${ei}"]`);
+        if (newInp) newInp.focus();
+      }, 50);
+    }
+
+    document.getElementById('btnAddEscolha').addEventListener('click', () => {
+      _composicoesCarregadas = true;
+      composicoes.push({ titulo: '', qtd_escolhas: 1, obrigatorio: 1, opcoes: [] });
+      renderComposicoes();
+      // Foca o novo input de título
+      setTimeout(() => {
+        const inputs = document.querySelectorAll('.escolha-titulo');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+      }, 50);
+    });
+
+    async function carregarComposicoes(produto_id) {
+      composicoes = [];
+      _composicoesCarregadas = false;
+      if (!produto_id) { renderComposicoes(); return; }
+      try {
+        const r = await fetch('api/produto_composicoes.php?produto_id=' + produto_id);
+        const j = await r.json();
+        if (j.ok) {
+          composicoes = (j.escolhas || []).map(e => ({
+            titulo: e.titulo,
+            qtd_escolhas: Number(e.qtd_escolhas) || 1,
+            obrigatorio: Number(e.obrigatorio),
+            opcoes: (e.opcoes || []).map(o => o.nome)
+          }));
+        }
+      } catch(ex) { console.error(ex); }
+      _composicoesCarregadas = true;
+      renderComposicoes();
+    }
+
+    async function salvarComposicoes(produto_id) {
+      if (!produto_id) return;
+      const escolhasValidas = composicoes.filter(e => e.titulo.trim() && e.opcoes.length > 0);
+      // Só envia se o usuário interagiu com a seção de composições
+      // (composicoes foi preenchido via carregarComposicoes ou pelo usuário)
+      if (!_composicoesCarregadas) return;
+      await fetch('api/produto_composicoes_salvar.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ produto_id, escolhas: escolhasValidas })
+      });
+    }
+
+    // init composicoes ao abrir modal vazio
+    renderComposicoes();
+
+    // ===== FIM COMPOSIÇÕES =====
 
     // init
     (async ()=>{

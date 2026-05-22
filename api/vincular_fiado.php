@@ -25,24 +25,26 @@ if ($fiado_id <= 0 || $pedido_id <= 0) {
 
 $pdo = getPDO();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+// Garante coluna antes da transação (DDL causa commit implícito no MySQL/MariaDB)
+try { $pdo->exec("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS fiado_vinculado_pedido_id INT DEFAULT NULL"); } catch (Throwable $e) {}
+
+// Verifica se coluna existe (sem SHOW COLUMNS — crash no MariaDB 10.4 Windows)
+$colExiste = false;
+try { $pdo->query("SELECT fiado_vinculado_pedido_id FROM pedidos LIMIT 0"); $colExiste = true; } catch (Throwable $e) {}
+if (!$colExiste) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Coluna fiado_vinculado_pedido_id não encontrada na tabela pedidos.']);
+    exit;
+}
+
 try {
-    // begin transaction
     $pdo->beginTransaction();
 
-    // Check column existence
-    $colStmt = $pdo->prepare("SHOW COLUMNS FROM pedidos LIKE 'fiado_vinculado_pedido_id'");
-    $colStmt->execute();
-    $col = $colStmt->fetch();
-    if (!$col) {
-        $pdo->rollBack();
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => "Coluna pedidos.fiado_vinculado_pedido_id não encontrada. Rode ALTER TABLE para adicioná-la."]);
-        exit;
-    }
-
-    // Get open caixa session - most recent
-    $sessStmt = $pdo->prepare("SELECT id FROM caixa_sessoes WHERE closed_at IS NULL ORDER BY id DESC LIMIT 1");
-    $sessStmt->execute();
+    // Get open caixa session - most recent da empresa
+    $empresaId = currentEmpresaId();
+    $sessStmt = $pdo->prepare("SELECT id FROM caixa_sessoes WHERE closed_at IS NULL AND empresa_id = ? ORDER BY id DESC LIMIT 1");
+    $sessStmt->execute([$empresaId]);
     $sess = $sessStmt->fetch();
     if (!$sess) {
         $pdo->rollBack();
@@ -140,9 +142,6 @@ try {
     echo json_encode([
         'success' => false,
         'message' => 'Erro no servidor',
-        'debug_error' => $e->getMessage(),
-        'debug_file' => basename($e->getFile()),
-        'debug_line' => $e->getLine()
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }

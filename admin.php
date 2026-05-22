@@ -2,6 +2,10 @@
 // admin.php - área administrativa
 require_once __DIR__ . '/auth.php';
 requireAdminPage(); // exige login admin
+require_once __DIR__ . '/funcoes.php';
+require_once __DIR__ . '/printer_config.php';
+$_printerCfg = getPrinterConfig();
+?>
 $user = currentUser();
 ?>
 <!doctype html>
@@ -226,6 +230,7 @@ $user = currentUser();
 </head>
 <body class="bg-light">
 <?php require_once __DIR__ . '/partials/admin_nav.php'; ?>
+<script>window._printerConfig = <?= json_encode($_printerCfg, JSON_UNESCAPED_UNICODE) ?>;</script>
 <?php
 require_once __DIR__ . '/auth.php';
 if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
@@ -288,6 +293,44 @@ if (isLoggedIn() && (currentUser()['role'] ?? '') === 'admin') {
       <button type="button" class="btn btn-tempos" id="btnAbrirTempos">
         ⏱️ Configurar Tempos
       </button>
+    </div>
+  </div>
+
+  <!-- Card Impressora -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <h6 class="mb-3">🖨️ Configuração da Impressora</h6>
+      <div id="msgImpressora"></div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label small fw-bold">Nome do Estabelecimento</label>
+          <input type="text" id="imp_nome" class="form-control form-control-sm" maxlength="100" placeholder="Ex: Bar do João">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold">Largura do Papel</label>
+          <select id="imp_largura" class="form-select form-select-sm">
+            <option value="58mm">58mm (térmica pequena)</option>
+            <option value="72mm">72mm (térmica média)</option>
+            <option value="80mm" selected>80mm (térmica 80mm)</option>
+            <option value="A4">A4 (impressora comum)</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold">Auto-imprimir ao abrir</label>
+          <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" id="imp_auto">
+            <label class="form-check-label small" for="imp_auto">Abrir diálogo de impressão automaticamente</label>
+          </div>
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-bold">Mensagem de Rodapé</label>
+          <input type="text" id="imp_rodape" class="form-control form-control-sm" maxlength="150" placeholder="Ex: Obrigado pela preferência! Volte sempre!">
+        </div>
+      </div>
+      <div class="mt-3 d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-primary" onclick="salvarImpressora()">💾 Salvar</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="testarCupom()">🖨️ Testar Cupom</button>
+      </div>
     </div>
   </div>
 
@@ -597,6 +640,24 @@ loadUsers();
   sliderCrit.addEventListener('input', updatePreview);
   sliderRefresh.addEventListener('input', updatePreview);
 
+  // ── Impressora ──────────────────────────────────────────────────────
+  async function carregarConfigImpressora() {
+    try {
+      const res  = await fetch('api/salvar_config_impressora.php', { method: 'GET' });
+      // GET não existe, então carregamos via uma chamada diferente — usa defaults visuais
+      // Config é carregada via página ao montar
+    } catch(e) {}
+  }
+
+  // Pré-popula campos com valores padrão ou salvos (via dataset na página)
+  (function() {
+    const cfg = window._printerConfig || {};
+    if (cfg.nome_restaurante) document.getElementById('imp_nome').value     = cfg.nome_restaurante;
+    if (cfg.largura_papel)    document.getElementById('imp_largura').value   = cfg.largura_papel;
+    if (cfg.rodape)           document.getElementById('imp_rodape').value    = cfg.rodape;
+    if (cfg.auto_print)       document.getElementById('imp_auto').checked    = true;
+  })();
+
   // Carregar configurações atuais do banco
   async function carregarTempos() {
     try {
@@ -667,6 +728,35 @@ loadUsers();
   // Inicializa preview
   updatePreview();
 })();
+
+async function salvarImpressora() {
+  const nome    = document.getElementById('imp_nome').value.trim();
+  const largura = document.getElementById('imp_largura').value;
+  const rodape  = document.getElementById('imp_rodape').value.trim();
+  const auto    = document.getElementById('imp_auto').checked;
+  const msg     = document.getElementById('msgImpressora');
+
+  try {
+    const res  = await fetch('api/salvar_config_impressora.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome_restaurante: nome, largura_papel: largura, rodape, auto_print: auto })
+    });
+    const data = await res.json();
+    if (data.success) {
+      msg.innerHTML = '<div class="alert alert-success py-1 small">✅ Configuração salva! Recarregue a página para aplicar.</div>';
+      window._printerConfig = data.config;
+    } else {
+      msg.innerHTML = `<div class="alert alert-danger py-1 small">❌ ${data.message}</div>`;
+    }
+  } catch(e) {
+    msg.innerHTML = `<div class="alert alert-danger py-1 small">Erro: ${e.message}</div>`;
+  }
+}
+
+function testarCupom() {
+  window.open('printer/cupom_teste.php', '_blank', 'width=400,height=600');
+}
 </script>
 
 <!-- Bootstrap JS (ativar navbar-toggler do partial admin_nav) -->

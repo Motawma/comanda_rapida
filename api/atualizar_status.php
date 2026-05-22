@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../funcoes.php';
+require_once __DIR__ . '/../auth.php';
 
 $input = json_decode(file_get_contents('php://input'), true);
 $pedidoId = (int)($input['pedido_id'] ?? 0);
@@ -12,7 +13,7 @@ if ($pedidoId <= 0 || $status === '') {
     exit;
 }
 
-$allowed = ['PENDENTE','EM_PREPARO','PRONTO','ENTREGUE','FIADO','PAGO','CANCELADO'];
+$allowed = ['PENDENTE','EM_PREPARO','PRONTO','A_CAMINHO','ENTREGUE','FIADO','PAGO','CANCELADO'];
 if (!in_array($status, $allowed)) {
     header('HTTP/1.1 400 Bad Request');
     echo json_encode(['success' => false, 'message' => 'Status inválido']);
@@ -28,16 +29,16 @@ if (!$pedido) {
 
 $current = $pedido['status'];
 
-// Regras de transição permitidas (agora aceitamos correções para trás)
-// ENTREGUE agora pode ir para EM_PREPARO (quando novos itens são adicionados)
+// Regras de transição permitidas
 $transitions = [
-    'PENDENTE' => ['EM_PREPARO','CANCELADO'],
+    'PENDENTE'   => ['EM_PREPARO','CANCELADO'],
     'EM_PREPARO' => ['PRONTO','CANCELADO','PENDENTE'],
-    'PRONTO' => ['ENTREGUE','CANCELADO','EM_PREPARO','FIADO'],
-    'ENTREGUE' => ['PAGO','CANCELADO','PRONTO','FIADO','EM_PREPARO','PENDENTE'], // permite voltar para preparo quando tem novos itens
-    'FIADO' => ['PAGO','CANCELADO'],
-    'PAGO' => [],
-    'CANCELADO' => []
+    'PRONTO'     => ['A_CAMINHO','ENTREGUE','CANCELADO','EM_PREPARO','FIADO'],
+    'A_CAMINHO'  => ['ENTREGUE','CANCELADO','PRONTO','FIADO'],
+    'ENTREGUE'   => ['PAGO','CANCELADO','A_CAMINHO','PRONTO','FIADO','EM_PREPARO','PENDENTE'],
+    'FIADO'      => ['PAGO','CANCELADO'],
+    'PAGO'       => [],
+    'CANCELADO'  => []
 ];
 
 if ($current === $status) {

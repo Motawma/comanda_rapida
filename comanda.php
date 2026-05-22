@@ -11,7 +11,6 @@ $produtos = getProdutoList();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Comanda Rápida - Garçom</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="theme.css">
   <script src="theme.js"></script>
   <!-- depois vem o Bootstrap normalmente -->
@@ -206,6 +205,51 @@ $produtos = getProdutoList();
     }
 
     /* CONTENT: keep simple padding; no extra padding-top needed because sticky stays in flow */
+
+    /* ===== MODAL ESPETOS ===== */
+    #modalEspetos .modal-content {
+      border: none; border-radius: 16px; overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    }
+    #modalEspetos .modal-header {
+      background: linear-gradient(135deg, #d63031, #e17055);
+      color: #fff; border-bottom: none; padding: .75rem 1rem;
+    }
+    #modalEspetos .modal-header .btn-close { filter: brightness(0) invert(1); }
+    #modalEspetos .modal-title { font-weight: 700; font-size: 1rem; }
+    #modalEspetos .modal-body { padding: 1rem; }
+    #modalEspetos .espeto-slot {
+      background: #f8f9fa; border-radius: 10px;
+      padding: .75rem; margin-bottom: .75rem;
+    }
+    #modalEspetos .espeto-slot label {
+      font-weight: 700; font-size: .9rem;
+      margin-bottom: .4rem; display: block; color: #d63031;
+    }
+    #modalEspetos .espeto-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: .4rem;
+    }
+    #modalEspetos .espeto-btn {
+      border: 2px solid #dee2e6; background: #fff; border-radius: 8px;
+      padding: .4rem .5rem; font-size: .85rem; font-weight: 600;
+      cursor: pointer; transition: all .15s; text-align: center; color: #495057;
+    }
+    #modalEspetos .espeto-btn:hover { border-color: #d63031; color: #d63031; background: #fff5f5; }
+    #modalEspetos .espeto-btn.selected { border-color: #d63031; background: #d63031; color: #fff; }
+    #modalEspetos .espeto-selecionado {
+      font-size: .8rem; color: #6c757d; margin-top: .3rem; min-height: 1.2rem;
+    }
+    #modalEspetos .espeto-selecionado.ok { color: #198754; font-weight: 600; }
+    #modalEspetos .modal-footer { border-top: 1px solid #e9ecef; padding: .6rem 1rem; }
+    #modalEspetos .modal-footer .btn { border-radius: 20px; padding: .4rem 1.5rem; font-weight: 600; }
+    #btnConfirmarEspetos { background: linear-gradient(135deg, #d63031, #e17055); border: none; color: #fff; }
+    #btnConfirmarEspetos:disabled { opacity: .5; }
+    #modalEspetos .prato-info {
+      background: #fff3cd; border-radius: 8px; padding: .5rem .75rem;
+      font-size: .82rem; color: #856404; margin-bottom: .75rem;
+    }
 
     /* ===== MODAL CUPOM ===== */
     #modalCupom .modal-content {
@@ -835,6 +879,38 @@ $produtos = getProdutoList();
       margin-top: .5rem;
       padding-top: .4rem;
       border-top: 1px solid #f0f0f0;
+      flex-wrap: wrap;
+    }
+
+    /* Botão Entregar Bebidas */
+    .comanda-card .btn-entregar-bebidas {
+      background: linear-gradient(135deg, #0d6efd, #6610f2);
+      border: none;
+      color: #fff;
+      font-weight: 700;
+      font-size: .82rem;
+      padding: .45rem .8rem;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      white-space: nowrap;
+    }
+    .comanda-card .btn-entregar-bebidas:hover {
+      background: linear-gradient(135deg, #0b5ed7, #520dc2);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 10px rgba(13,110,253,.3);
+    }
+    .comanda-card .btn-entregar-bebidas:active {
+      transform: scale(.96);
+    }
+    .comanda-card .btn-entregar-bebidas:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
     }
   </style>
 </head>
@@ -947,8 +1023,14 @@ $produtos = getProdutoList();
         </div>
         <div class="modal-body p-0" id="modalCupomBody" style="max-height:70vh;overflow-y:auto;">
         </div>
-        <div class="modal-footer py-2">
+        <div class="modal-footer py-2 gap-2 flex-wrap justify-content-center">
           <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+          <button type="button" class="btn btn-sm" id="btnImprimirCozinha" style="background:linear-gradient(135deg,#e17055,#d63031);color:#fff;font-weight:700;border-radius:20px;padding:.35rem 1rem;">
+            🖨️ Cozinha
+          </button>
+          <button type="button" class="btn btn-sm" id="btnImprimirCliente" style="background:linear-gradient(135deg,#00b894,#00cec9);color:#fff;font-weight:700;border-radius:20px;padding:.35rem 1rem;">
+            🧾 Cliente
+          </button>
         </div>
       </div>
     </div>
@@ -1002,6 +1084,37 @@ $produtos = getProdutoList();
 
 <!-- Container de toasts de pedido pronto -->
 <div id="toastContainerPronto"></div>
+
+  <!-- Modal Espetos — seleção dos 2 espetos do Prato Pronto -->
+  <div class="modal fade" id="modalEspetos" tabindex="-1" aria-labelledby="modalEspetosLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:420px;">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title" id="modalEspetosLabel">🥩 Escolha os Espetos do Prato Pronto</h6>
+          <button type="button" class="btn-close" id="btnFecharEspetos" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="prato-info">
+            🍽️ Prato Pronto <span id="modalEspetosNumero"></span> — escolha 2 espetos
+          </div>
+          <div class="espeto-slot">
+            <label>🥩 1º Espeto</label>
+            <div class="espeto-grid" id="espetosGrid1"></div>
+            <div class="espeto-selecionado" id="espeto1Selecionado">Nenhum selecionado</div>
+          </div>
+          <div class="espeto-slot">
+            <label>🥩 2º Espeto</label>
+            <div class="espeto-grid" id="espetosGrid2"></div>
+            <div class="espeto-selecionado" id="espeto2Selecionado">Nenhum selecionado</div>
+          </div>
+        </div>
+        <div class="modal-footer py-2 justify-content-between">
+          <button type="button" class="btn btn-secondary btn-sm" id="btnCancelarEspetos">Cancelar Prato</button>
+          <button type="button" class="btn btn-sm" id="btnConfirmarEspetos" disabled>Confirmar ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
 <!-- Banner fixo inferior: itens prontos aguardando entrega -->
 <div id="bannerProntos">
@@ -1307,7 +1420,18 @@ async function enviarPedido(mesa) {
   Object.keys(merged).forEach(k => {
     const id = Number(k);
     const q = Number(merged[k]) || 0;
-    if (id && q > 0) items.push({ produto_id: id, quantidade: q });
+    if (id && q > 0) {
+      const obsArray = window._pratosProntoObs && window._pratosProntoObs[id];
+      if (obsArray && obsArray.length > 0) {
+        // Um item por prato com obs dos espetos
+        obsArray.forEach(obs => items.push({ produto_id: id, quantidade: 1, obs }));
+        // Quantidade extra sem obs (caso haja diferença)
+        const extra = q - obsArray.length;
+        if (extra > 0) items.push({ produto_id: id, quantidade: extra });
+      } else {
+        items.push({ produto_id: id, quantidade: q });
+      }
+    }
   });
   if (items.length === 0) {
     alert('Selecione ao menos 1 item.');
@@ -1330,20 +1454,19 @@ async function enviarPedido(mesa) {
 
       // Carrega o cupom no modal em vez de abrir nova aba
       const pedidoId = data.pedido_id;
+      window._ultimoPedidoId = pedidoId; // guarda para os botões de impressão
       const cupomUrl = 'printer/cupom.php?pedido_id=' + pedidoId;
       const modalBody = document.getElementById('modalCupomBody');
       const modalLabel = document.getElementById('modalCupomLabel');
 
       if (modalBody) {
-        try {
-          const cupomRes = await fetch(cupomUrl);
-          const cupomHtml = await cupomRes.text();
-          const match = cupomHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-          modalBody.innerHTML = match ? match[1] : cupomHtml;
-          modalBody.querySelectorAll('.no-print').forEach(el => el.remove());
-        } catch(cupomErr) {
-          modalBody.innerHTML = '<div class="p-3 text-center text-muted">Pedido #' + pedidoId + ' enviado com sucesso!</div>';
-        }
+        modalBody.innerHTML = `
+          <div class="p-4 text-center">
+            <div style="font-size:3rem;">✅</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#198754;margin:.5rem 0;">Pedido enviado!</div>
+            <div style="font-size:.9rem;color:#6c757d;">Comanda <strong>${escapeHtml(mesa)}</strong> · Pedido <strong>#${pedidoId}</strong></div>
+            <div style="font-size:.8rem;color:#adb5bd;margin-top:.35rem;">Escolha como imprimir abaixo</div>
+          </div>`;
       }
       if (modalLabel) {
         modalLabel.textContent = '✅ Pedido #' + pedidoId + ' — Comanda ' + mesa;
@@ -1351,13 +1474,14 @@ async function enviarPedido(mesa) {
 
       const modalEl = document.getElementById('modalCupom');
       if (modalEl && typeof bootstrap !== 'undefined') {
-        const modal = new bootstrap.Modal(modalEl);
+        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
         modal.show();
       }
 
       document.getElementById('msg').innerHTML = '<div class="alert alert-success">Pedido enviado! ID: '+pedidoId+'</div>';
       document.querySelectorAll('.qty-input').forEach(i => i.value = 0);
       window.carrinho = {};
+      window._pratosProntoObs = {};
       document.getElementById('mesa').value = '';
       atualizarResumo();
     } else {
@@ -1408,28 +1532,37 @@ async function enviarPedido(mesa) {
 
   // Global add-to-comanda wrapper: accepts (produtoId, quantidade)
   // Ensures TOP counts are incremented and qty-input is updated. Safe if qty-input not present.
-  window.__addProdutoToComanda = function(produtoId, quantidade){
+  window.__addProdutoToComanda = async function(produtoId, quantidade){
     try {
       const id = Number(produtoId);
       const q = Math.max(1, Number(quantidade) || 1);
       if (!id) return;
 
-      // Usa carrinho virtual (única fonte — cards removidos)
-      if (typeof window.carrinho === 'undefined' || window.carrinho === null) window.carrinho = {};
-      window.carrinho[id] = (Number(window.carrinho[id]) || 0) + q;
+      // Intercepta Prato Pronto para seleção de espetos
+      if (typeof window.__interceptarPratoPronto === 'function') {
+        const interceptado = await window.__interceptarPratoPronto(id, q, function(pid, qtd, obsArray) {
+          _adicionarAoCarrinho(pid, qtd);
+          if (!window._pratosProntoObs) window._pratosProntoObs = {};
+          window._pratosProntoObs[pid] = obsArray;
+        });
+        if (interceptado) return;
+      }
 
-      // TOP ranking
-      TOP_COUNTS[id] = (TOP_COUNTS[id] || 0) + q;
-      try { saveTopCounts(TOP_COUNTS); } catch(e){ console.error(e); }
-      try { renderTop(); } catch(e){ console.error(e); }
-
-      // update resumo
-      try { atualizarResumo(); } catch(e){ console.error(e); }
-
+      _adicionarAoCarrinho(id, q);
     } catch (e) {
       console.error(e);
     }
   };
+
+  function _adicionarAoCarrinho(id, q) {
+    if (typeof window.carrinho === 'undefined' || window.carrinho === null) window.carrinho = {};
+    window.carrinho[id] = (Number(window.carrinho[id]) || 0) + q;
+
+    TOP_COUNTS[id] = (TOP_COUNTS[id] || 0) + q;
+    try { saveTopCounts(TOP_COUNTS); } catch(e){ console.error(e); }
+    try { renderTop(); } catch(e){ console.error(e); }
+    try { atualizarResumo(); } catch(e){ console.error(e); }
+  }
 
   // Helper: detect mobile viewport (matches CSS breakpoints)
   function isMobile(){
@@ -1740,7 +1873,155 @@ async function enviarPedido(mesa) {
   }
 })();
 
-// ===== COMANDAS ABERTAS — Modal de seleção rápida =====
+// ===== BOTÕES DE IMPRESSÃO DO MODAL CUPOM =====
+document.getElementById('btnImprimirCozinha')?.addEventListener('click', function() {
+  const pid = window._ultimoPedidoId;
+  if (!pid) return;
+  window.open('printer/cupom.php?pedido_id=' + pid + '&modo=cozinha', '_blank');
+});
+
+document.getElementById('btnImprimirCliente')?.addEventListener('click', function() {
+  const pid = window._ultimoPedidoId;
+  if (!pid) return;
+  window.open('printer/cupom.php?pedido_id=' + pid, '_blank');
+});
+
+// ===== SISTEMA DE ESPETOS — Prato Pronto =====
+(() => {
+  const NOME_PRATO_PRONTO = 'Prato Pronto (Arroz, mandioca, farofa, salada, vinagrete + 2 espetos)';
+  const CAT_ESPETO = 'Espetos Tradicionais';
+
+  let espetosDisponiveis = [];
+  let filaEspetos = [];
+  let pratoAtualIndex = 0;
+  let espeto1 = null;
+  let espeto2 = null;
+  let obsPorPrato = [];
+  let modalInstance = null;
+  let onConcluidoCallback = null;
+
+  async function carregarEspetos() {
+    if (espetosDisponiveis.length > 0) return;
+    try {
+      const res = await fetch('api/produtos_listar.php?ativo=1');
+      const data = await res.json();
+      const lista = data.produtos || data.data || [];
+      espetosDisponiveis = lista.filter(p =>
+        String(p.categoria || '').trim().toLowerCase() === CAT_ESPETO.toLowerCase()
+      );
+    } catch(e) {
+      console.error('Erro ao carregar espetos:', e);
+    }
+  }
+
+  function isPratoPronto(produtoId) {
+    const p = produtos[Number(produtoId)];
+    if (!p) return false;
+    return normText(p.nome) === normText(NOME_PRATO_PRONTO);
+  }
+
+  function renderGrid(gridEl, selecionado, onSelect) {
+    gridEl.innerHTML = '';
+    if (espetosDisponiveis.length === 0) {
+      gridEl.innerHTML = '<div class="text-muted" style="font-size:.8rem;">Nenhum espeto cadastrado em "Espetos Tradicionais"</div>';
+      return;
+    }
+    espetosDisponiveis.forEach(esp => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'espeto-btn' + (selecionado === esp.nome ? ' selected' : '');
+      btn.textContent = esp.nome;
+      btn.onclick = () => { onSelect(esp.nome); };
+      gridEl.appendChild(btn);
+    });
+  }
+
+  function atualizarLabels() {
+    const el1 = document.getElementById('espeto1Selecionado');
+    const el2 = document.getElementById('espeto2Selecionado');
+    if (el1) { el1.textContent = espeto1 ? '✓ ' + espeto1 : 'Nenhum selecionado'; el1.className = 'espeto-selecionado' + (espeto1 ? ' ok' : ''); }
+    if (el2) { el2.textContent = espeto2 ? '✓ ' + espeto2 : 'Nenhum selecionado'; el2.className = 'espeto-selecionado' + (espeto2 ? ' ok' : ''); }
+    const btn = document.getElementById('btnConfirmarEspetos');
+    if (btn) btn.disabled = !(espeto1 && espeto2);
+  }
+
+  function atualizarModal() {
+    const total = filaEspetos.length;
+    const atual = pratoAtualIndex + 1;
+    const numEl = document.getElementById('modalEspetosNumero');
+    if (numEl) numEl.textContent = total > 1 ? `(${atual} de ${total})` : '';
+
+    espeto1 = null; espeto2 = null;
+
+    renderGrid(document.getElementById('espetosGrid1'), null, nome => {
+      espeto1 = nome;
+      // atualiza visual selected no grid1
+      document.querySelectorAll('#espetosGrid1 .espeto-btn').forEach(b => {
+        b.classList.toggle('selected', b.textContent === nome);
+      });
+      atualizarLabels();
+    });
+    renderGrid(document.getElementById('espetosGrid2'), null, nome => {
+      espeto2 = nome;
+      document.querySelectorAll('#espetosGrid2 .espeto-btn').forEach(b => {
+        b.classList.toggle('selected', b.textContent === nome);
+      });
+      atualizarLabels();
+    });
+
+    atualizarLabels();
+  }
+
+  function abrirProximo() {
+    if (pratoAtualIndex >= filaEspetos.length) {
+      fecharModal();
+      if (onConcluidoCallback) onConcluidoCallback(obsPorPrato);
+      return;
+    }
+    atualizarModal();
+    if (!modalInstance) {
+      modalInstance = new bootstrap.Modal(document.getElementById('modalEspetos'));
+    }
+    modalInstance.show();
+  }
+
+  function fecharModal() {
+    if (modalInstance) modalInstance.hide();
+  }
+
+  function confirmarEspeto() {
+    if (!espeto1 || !espeto2) return;
+    obsPorPrato.push({ index: pratoAtualIndex, obs: `Espeto 1: ${espeto1} | Espeto 2: ${espeto2}` });
+    pratoAtualIndex++;
+    if (pratoAtualIndex < filaEspetos.length) {
+      atualizarModal(); // já está aberto, só atualiza conteúdo
+    } else {
+      fecharModal();
+      if (onConcluidoCallback) onConcluidoCallback(obsPorPrato);
+    }
+  }
+
+  function cancelarEspetos() {
+    filaEspetos = []; obsPorPrato = []; pratoAtualIndex = 0; espeto1 = null; espeto2 = null;
+    fecharModal();
+  }
+
+  window.__interceptarPratoPronto = async function(produtoId, quantidade, callback) {
+    if (!isPratoPronto(produtoId)) return false;
+    await carregarEspetos();
+    filaEspetos = Array.from({ length: quantidade }, (_, i) => ({ produtoId, index: i }));
+    obsPorPrato = []; pratoAtualIndex = 0; espeto1 = null; espeto2 = null;
+    onConcluidoCallback = (resultados) => callback(produtoId, quantidade, resultados.map(r => r.obs));
+    abrirProximo();
+    return true;
+  };
+
+  document.getElementById('btnConfirmarEspetos')?.addEventListener('click', confirmarEspeto);
+  document.getElementById('btnCancelarEspetos')?.addEventListener('click', cancelarEspetos);
+  document.getElementById('btnFecharEspetos')?.addEventListener('click', cancelarEspetos);
+})();
+
+
 (() => {
   let comandasCache = [];
   let comandasTimer = null;
@@ -1797,9 +2078,29 @@ async function enviarPedido(mesa) {
       contagem[st] = (contagem[st] || 0) + (it.quantidade || 1);
     });
 
-    // Coletar item_ids dos itens com status PRONTO
-    const prontoItemIds = itens
-      .filter(it => (it.item_status || '') === 'PRONTO' && it.item_id)
+    // Palavras-chave para detectar bebidas — na categoria OU no nome do produto
+    const BEBIDA_KEYWORDS = ['BEBIDA','DRINK','SUCO','CERVEJA','REFRIGERANTE','AGUA','ÁGUA',
+      'CAIPIRINHA','CAIPIROSKA','VINHO','CHOPP','CHOPE','LONG NECK','LONGNECK',
+      'COCA','GUARANA','GUARANÁ','SPRITE','FANTA','MONSTER','RED BULL','REDBULL',
+      'H2O','LIMONADA','VITAMINA','SHAKE','MILK','LEITE','CAFE','CAFÉ',
+      'SODA','TONICA','TÔNICA','AGUA','ÁGUA','GIN','VODKA','WHISKY','WHISKEY',
+      'HEINEKEN','BRAHMA','SKOL','ANTARCTICA','ITAIPAVA','EISENBAHN','ORIGINAL'];
+
+    function isBebida(item) {
+      const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+      const cat  = norm(item.categoria);
+      const nome = norm(item.nome);
+      return BEBIDA_KEYWORDS.some(k => cat.includes(k) || nome.includes(k));
+    }
+
+    // Bebidas: qualquer status exceto ENTREGUE (garçom entrega na hora, sem esperar cozinha)
+    const bebidasPendentesIds = itens
+      .filter(it => isBebida(it) && (it.item_status || '') !== 'ENTREGUE' && it.item_id)
+      .map(it => it.item_id);
+
+    // Pratos (não bebida): só aparecem quando PRONTO
+    const prontoComidaIds = itens
+      .filter(it => !isBebida(it) && (it.item_status || '') === 'PRONTO' && it.item_id)
       .map(it => it.item_id);
 
     // Barra de progresso: chips com contagem por status
@@ -1825,14 +2126,32 @@ async function enviarPedido(mesa) {
       ? `<div class="text-muted text-center" style="font-size:.72rem;">+ ${itens.length - 8} itens...</div>`
       : '';
 
-    // Botão "Entregue" — só aparece quando há itens PRONTO
-    const btnEntregue = prontoItemIds.length > 0
-      ? `<div class="comanda-acoes">
-          <button type="button" class="btn-entregar-comanda" data-item-ids='${JSON.stringify(prontoItemIds)}' data-mesa="${escapeHtml(c.mesa)}" title="Marcar itens prontos como entregues">
-            🍽️ Entregue (${prontoItemIds.length})
-          </button>
-        </div>`
-      : '';
+    // Botões de entrega
+    let botoesEntrega = '';
+
+    const temBebidasParaEntregar = bebidasPendentesIds.length > 0;
+    const temComidaPronta        = prontoComidaIds.length > 0;
+
+    if (temBebidasParaEntregar || temComidaPronta) {
+      let botoes = '';
+
+      if (temBebidasParaEntregar) {
+        botoes += `
+          <button type="button" class="btn-entregar-bebidas" data-item-ids='${JSON.stringify(bebidasPendentesIds)}' data-mesa="${escapeHtml(c.mesa)}" title="Marcar bebidas como entregues">
+            🍺 Bebidas (${bebidasPendentesIds.length})
+          </button>`;
+      }
+
+      if (temComidaPronta) {
+        botoes += `
+          <button type="button" class="btn-entregar-comanda" data-item-ids='${JSON.stringify(prontoComidaIds)}' data-mesa="${escapeHtml(c.mesa)}" title="Marcar pratos como entregues">
+            🍽️ Pratos (${prontoComidaIds.length})
+          </button>`;
+      }
+
+      botoesEntrega = `<div class="comanda-acoes">${botoes}</div>`;
+    }
+    const btnEntregue = botoesEntrega;
 
     return `
       <div class="comanda-card mb-2" data-mesa="${escapeHtml(c.mesa)}" role="button" tabindex="0">
@@ -1963,8 +2282,8 @@ async function enviarPedido(mesa) {
 
   // Delegated click nos cards de comanda
   document.getElementById('listaComandas').addEventListener('click', function(e) {
-    // Intercepta clique no botão "Entregue" antes de selecionar a comanda
-    const btnEntregue = e.target.closest('.btn-entregar-comanda');
+    // Intercepta clique no botão "Entregue" (comida ou bebidas) antes de selecionar a comanda
+    const btnEntregue = e.target.closest('.btn-entregar-comanda, .btn-entregar-bebidas');
     if (btnEntregue) {
       e.preventDefault();
       e.stopPropagation();
@@ -2320,6 +2639,7 @@ async function enviarPedido(mesa) {
   async function marcarItensEntregues(btn) {
     const itemIds = JSON.parse(btn.dataset.itemIds || '[]');
     const mesa = btn.dataset.mesa || '';
+    const isBebida = btn.classList.contains('btn-entregar-bebidas');
     if (!itemIds.length) return;
 
     const textoOriginal = btn.innerHTML;
@@ -2334,10 +2654,10 @@ async function enviarPedido(mesa) {
       });
       const data = await res.json();
       if (data.ok) {
-        // Feedback visual rápido
-        btn.innerHTML = '✅ Entregue!';
-        btn.style.background = '#cff4fc';
-        btn.style.color = '#055160';
+        // Feedback visual diferenciado
+        btn.innerHTML = isBebida ? '🍺 Bebidas entregues!' : '✅ Entregue!';
+        btn.style.background = isBebida ? '#cfe2ff' : '#cff4fc';
+        btn.style.color = isBebida ? '#084298' : '#055160';
         // Recarrega as comandas para atualizar o modal
         setTimeout(() => carregarComandas(), 600);
       } else {

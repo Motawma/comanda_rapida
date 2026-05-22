@@ -254,6 +254,14 @@ requireLogin();
       color: #e0e0e0;
     }
 
+    .kds-item .item-obs {
+      display: block;
+      font-size: .78rem;
+      color: #f39c12;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
     .kds-item .item-cat {
       font-size: .7rem;
       padding: .1rem .35rem;
@@ -823,13 +831,29 @@ function tempoDecorrido(dateStr) {
   return { total: diff, min: totalMin, text, cls, isCritical: totalMin >= CRIT_MINUTES };
 }
 
+// ── Palavras-chave de bebida (categoria OU nome do produto) ──
+const BEBIDA_KW = [
+  'BEBIDA','DRINK','SUCO','CERVEJA','REFRIGERANTE','AGUA','ÁGUA',
+  'CAIPIRINHA','CAIPIROSKA','VINHO','CHOPP','CHOPE','LONG NECK','LONGNECK',
+  'COCA','GUARANA','GUARANÁ','SPRITE','FANTA','MONSTER','RED BULL','REDBULL',
+  'H2O','LIMONADA','VITAMINA','SHAKE','GIN','VODKA','WHISKY','WHISKEY',
+  'HEINEKEN','BRAHMA','SKOL','ANTARCTICA','ITAIPAVA','EISENBAHN','ORIGINAL',
+  'ENERGETICO','ENERGÉTICO','TONICA','TÔNICA','SODA',
+];
+function normUpper(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+}
+function isBebidaItem(item) {
+  const cat  = normUpper(item.categoria || '');
+  const nome = normUpper(item.nome || '');
+  return BEBIDA_KW.some(k => cat.includes(k) || nome.includes(k));
+}
+
 // ── Classifica categoria do item (Bebida, Comida, Outro) ──
-function classCategoria(cat) {
-  const c = (cat || '').trim().toUpperCase();
-  if (c.includes('BEBIDA')) return { label: 'Bebida', cls: 'cat-bebida' };
-  if (c.includes('DRINK') || c.includes('SUCO') || c.includes('CERVEJA') || c.includes('REFRIGERANTE'))
-    return { label: 'Bebida', cls: 'cat-bebida' };
-  if (c === '' || c === 'OUTROS') return { label: '', cls: 'cat-outro' };
+function classCategoria(item) {
+  if (isBebidaItem(item)) return { label: 'Bebida', cls: 'cat-bebida' };
+  const cat = (item.categoria || '').trim();
+  if (!cat || cat.toUpperCase() === 'OUTROS') return { label: '', cls: 'cat-outro' };
   return { label: cat, cls: 'cat-comida' };
 }
 
@@ -863,7 +887,7 @@ function renderCard(pedido, coluna) {
   let itensHtml = '';
   if (pedido.itens && pedido.itens.length > 0) {
     pedido.itens.forEach(it => {
-      const cat = classCategoria(it.categoria);
+      const cat = classCategoria(it);
       const catBadge = cat.label ? `<span class="item-cat ${cat.cls}">${esc(cat.label)}</span>` : '';
 
       // Badge de status individual do item (só mostra se houver status misto ou itens já entregues)
@@ -885,17 +909,16 @@ function renderCard(pedido, coluna) {
       const btnLabel = acaoBotao(itemStatus);
       const btnClass = btnClassParaAcao(itemStatus);
 
-      // Botão extra "Entregar antes" para bebidas (pula direto para ENTREGUE)
-      const isBebida = cat.cls === 'cat-bebida';
-      const podeEntregarAntes = isBebida && (itemStatus === 'PENDENTE' || itemStatus === 'EM_PREPARO');
+      // Botão extra "Entregar antes" para bebidas — aparece para qualquer status exceto ENTREGUE
+      const podeEntregarAntes = isBebidaItem(it) && itemStatus !== 'ENTREGUE';
       const btnEntregarAntes = podeEntregarAntes
-        ? `<button class="kds-item-action btn-item-entregar-antes" onclick="mudarStatusItem(${itemId},'ENTREGUE',event)" title="Entregar bebida antes">⚡ Entregar</button>`
+        ? `<button class="kds-item-action btn-item-entregar-antes" onclick="mudarStatusItem(${itemId},'ENTREGUE',event)" title="Entregar bebida agora">🍺 Entregar</button>`
         : '';
 
       itensHtml += `
         <div class="kds-item${statusCls}">
           <span class="qty">${it.quantidade}x</span>
-          <span class="item-name">${esc(it.nome)}${novoBadge}</span>
+          <span class="item-name">${esc(it.nome)}${novoBadge}${it.obs ? `<br><span class="item-obs">🥩 ${esc(it.obs)}</span>` : ''}</span>
           ${catBadge}
           <button class="kds-item-action ${btnClass}" onclick="mudarStatusItem(${itemId},'${nextStatus}',event)">${btnLabel}</button>
           ${btnEntregarAntes}
